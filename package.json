@@ -1,0 +1,23 @@
+{
+  "name": "gitpushreview",
+  "version": "0.1.0",
+  "description": "Git pre-commit review gate powered by BDR, Markdown rules, and AI models",
+  "type": "module",
+  "bin": {
+    "gitpushreview": "./bin/gitpushreview.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "vendor/",
+    "templates/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,51 @@
+{
+  "name": "agile-bdr",
+  "version": "0.5.0",
+  "description": "Bad smell Driven Refactoring — Agent skill plugin and CLI",
+  "type": "module",
+  "main": ".opencode/plugins/bdr.js",
+  "bin": {
+    "bdr": "./bin/bdr.js"
+  },
+  "files": [
+    "bin/",
+    "cli/",
+    "skills/",
+    "commands/",
+    "templates/",
+    ".cursor-plugin/",
+    ".claude-plugin/",
+    ".codex-plugin/",
+    "gemini-extension.json",
+    ".opencode/"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agiledon/bdr.git"
+  },
+  "bugs": {
+    "url": "https://github.com/agiledon/bdr/issues"
+  },
+  "homepage": "https://github.com/agiledon/bdr#readme",
+  "license": "MIT",
+  "keywords": [
+    "bdr",
+    "agile-bdr",
+    "refactoring",
+    "skills",
+    "agent",
+    "cursor",
+    "opencode",
+    "kiro",
+    "qoder"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.7.0"
+  }
+}
