@@ -347,6 +347,21 @@ gitpushreview bdr status
 
 升级 BDR 时，可以用新版 `https://github.com/agiledon/bdr.git` 内容覆盖 `.gitpushreview/vendor/bdr`。GitPushReview 不会把 BDR 规则硬编码进 default Markdown，因此后续升级 BDR 时不需要重写插件规则。
 
+## 下一步计划：严格规则包
+
+当前内置 `default` 规则保持高信号、低误报，主要覆盖提交前最值得拦截的安全、数据一致性、事务、中间件和工程流程风险。后续有必要继续建设更细的严格规则包，但建议作为可选能力启用，而不是全部默认强推。
+
+计划方向：
+
+- `default/strict-java`：补充 Java、Spring Boot、Spring Cloud、MyBatis、P3C、SonarJava、Error Prone、NullAway、SpotBugs 等更细规则。
+- `default/strict-db`：补充 MySQL、Oracle、PostgreSQL、OceanBase 的索引、执行计划、迁移、锁、分区、权限和恢复规则。
+- `default/strict-frontend`：补充 Vue、TypeScript、ESLint、Semgrep、构建产物、组件测试和前端安全规则。
+- `default/strict-middleware`：补充 Redis、RabbitMQ、Seata、Drools 等中间件和规则引擎的生产治理规则。
+- `default/strict-security`：补充 OWASP ASVS、API Security、供应链、密钥治理、审计和安全扫描规则。
+
+启用方式建议仍然沿用 `.gitpushreview/agent/rules-index.md`：项目可以按需把某个严格规则文件加入 `Default Rules.files` 或 `Project Rules.files`，并通过 `weight`、`hardBlock` 和阈值控制拦截强度。
+
+这样做的好处是：默认安装不会因为规则过细而产生大量误报，公司项目又可以逐步打开更严格的规则包，把团队规范沉淀成可配置、可审计、可升级的规则库。
 ## 常用命令
 
 ```bash
@@ -374,3 +389,4 @@ gitpushreview bdr status
 npm test
 npm pack --dry-run
 ```
+
