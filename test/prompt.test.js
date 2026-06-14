@@ -14,8 +14,27 @@ test('buildReviewMessages requires Chinese user-facing finding fields', () => {
 
   assert.match(messages[0].content, /所有面向用户的字段必须使用中文/);
   assert.match(messages[0].content, /title、evidence、suggestion/);
-  assert.match(messages[0].content, /只对匹配规则 paths 的文件应用该规则/);
+  assert.match(messages[0].content, /候选集由文件能力、公共兜底和 paths 共同决定/);
   assert.match(messages[0].content, /只有规则 hardBlock 为 true/);
+});
+
+test('buildReviewMessages includes deterministic routes and findings for AI context', () => {
+  const messages = buildReviewMessages({
+    reviewAgent: 'review agent',
+    policy: 'policy',
+    bdrContext: { text: 'bdr' },
+    rules: [],
+    diff: '+spring.kafka.admin.auto-create=true',
+    files: ['src/main/resources/application-prod.yml'],
+    routes: [{ file: 'src/main/resources/application-prod.yml', labels: ['config', 'mq', 'kafka'], dialectCandidates: [] }],
+    deterministicFindings: [{ ruleId: 'DEFAULT-MQ-KAFKA-AUTO-CREATE-001', blocking: 'hard', file: 'src/main/resources/application-prod.yml', evidence: '生产环境配置中启用了 Kafka 自动创建 Topic。' }],
+  });
+
+  const userContent = messages[1].content;
+  assert.match(userContent, /# Deterministic Gate Context/);
+  assert.match(userContent, /mq, kafka/);
+  assert.match(userContent, /DEFAULT-MQ-KAFKA-AUTO-CREATE-001/);
+  assert.match(userContent, /生产环境配置中启用了 Kafka 自动创建 Topic/);
 });
 
 test('buildReviewMessages includes rule severity and path scope in markdown rules', () => {

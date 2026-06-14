@@ -414,8 +414,27 @@ function renderList(items) {
   return items.map((item) => `- ${item}`).join('\n');
 }
 
+function inferCapabilities(rule) {
+  const id = rule.id || '';
+  if (id.includes('-MYSQL-')) return ['persistence.sql', 'persistence.sql.mysql'];
+  if (id.includes('-ORACLE-')) return ['persistence.sql', 'persistence.sql.oracle'];
+  if (id.includes('-POSTGRESQL-')) return ['persistence.sql', 'persistence.sql.postgresql'];
+  if (id.includes('-OCEANBASE-')) return ['persistence.sql', 'persistence.sql.oceanbase'];
+  if (id.includes('-REDIS-')) return ['middleware.redis'];
+  if (id.includes('-RABBITMQ-')) return ['middleware.mq', 'middleware.mq.rabbitmq'];
+  if (id.includes('-DROOLS-')) return ['rules.drools'];
+  if (id.includes('-VUE-') || id.includes('-FE-')) return ['frontend.vue'];
+  if (id.includes('-PY-') || id.includes('-PYTHON-')) return ['language.python'];
+  if (id.includes('-JAVA-')) return ['language.java'];
+  if (id.includes('-SQLFLUFF-')) return ['persistence.sql', 'workflow.db-migration'];
+  if (id.includes('-SEC-')) return ['common.core', 'security.secrets'];
+  if (id.includes('-WORKFLOW-')) return ['common.core'];
+  return ['common.core'];
+}
+
 function renderRule(rule) {
   const paths = rule.paths.map((item) => `  - "${item}"`).join('\n');
+  const capabilities = inferCapabilities(rule).map((item) => `  - ${item}`).join('\n');
   return `## ${rule.id} ${rule.title}
 
 \`\`\`yaml
@@ -424,6 +443,8 @@ severity: ${rule.severity}
 hardBlock: ${rule.hardBlock}
 paths:
 ${paths}
+capabilities:
+${capabilities}
 \`\`\`
 
 **规则说明**：${rule.desc}
@@ -438,7 +459,6 @@ ${renderList(rule.fixes)}
 
 **参考来源**：${rule.refs}`;
 }
-
 function renderDoc(title, rules) {
   return `# ${title}\n\n${rules.map(renderRule).join('\n\n')}\n`;
 }
@@ -742,9 +762,12 @@ hardBlock: false
 paths:
   - backend/**/*.java
   - frontend/**/*.vue
+capabilities:
+  - language.java
+  - frontend.vue
 \`\`\`
 
-正文建议固定使用这些小节，AI 会把它们作为审核依据和修复建议来源：
+正文建议固定使用这些小节，AI 会把它们作为审核依据和修复建议来源。可以用 \`gitpushreview explain <file> --json\` 查看某个文件的能力标签、候选规则和过滤原因：
 
 - **规则说明**：这条规则要求什么。
 - **检查要点**：审核时应该检查哪些信号。

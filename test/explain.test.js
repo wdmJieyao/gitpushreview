@@ -1,0 +1,54 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { initWorkspace } from '../src/workspace.js';
+import { routeCommand } from '../src/cli.js';
+
+test('explain prints matching routes and deterministic gates for a file', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-explain-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+  const file = path.join(dir, 'src/main/java/com/acme/order/OrderMapper.java');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, '@Insert("insert into users(id, name) values (#{id})")\n', 'utf8');
+
+  const result = await routeCommand(['explain', 'src/main/java/com/acme/order/OrderMapper.java'], { cwd: dir, env: {}, stdout: [] });
+
+  assert.equal(result.exitCode, 0);
+  assert.match(result.output, /命中路由/);
+  assert.match(result.output, /java-inline-sql/);
+  assert.match(result.output, /sql/);
+  assert.match(result.output, /确定性检查/);
+  assert.match(result.output, /DEFAULT-SQL-INSERT-ARITY-001/);
+  assert.match(result.output, /强拦截/);
+  assert.match(result.output, /证据：/);
+  assert.match(result.output, /修复建议：/);
+  assert.doesNotMatch(result.output, /�|鍐|锛|fatal: not a git repository/);
+});
+
+test('explain rejects paths outside the repository root', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-explain-outside-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+  const outside = path.join(os.tmpdir(), 'gpr-outside.sql');
+  fs.writeFileSync(outside, 'insert into users(id, name) values (1);', 'utf8');
+
+  const result = await routeCommand(['explain', outside], { cwd: dir, env: {}, stdout: [] });
+
+  assert.equal(result.exitCode, 1);
+  assert.match(result.output, /项目根目录之外/);
+});
+
+test('explain --json returns stable machine-readable details', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-explain-json-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+  fs.mkdirSync(path.join(dir, 'sql'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'sql/test.sql'), "insert into users(id, name) values (1);\n", 'utf8');
+
+  const result = await routeCommand(['explain', '--json', 'sql/test.sql'], { cwd: dir, env: {}, stdout: [] });
+  const parsed = JSON.parse(result.output);
+
+  assert.equal(result.exitCode, 0);
+  assert.ok(parsed.routes.labels.includes('sql'));
+  assert.equal(parsed.findings[0].ruleId, 'DEFAULT-SQL-INSERT-ARITY-001');
+});

@@ -3,12 +3,16 @@ import { getStagedSnapshot } from './git.js';
 import { handleReviewResult } from './hook.js';
 import { runReview } from './review/runner.js';
 import { readBdrStatus, renderDoctor, runDoctor } from './doctor.js';
+import { explainFile, explainHelp, explainStaged } from './explain.js';
+import { inspectProjectProfile, renderProjectProfile } from './profile.js';
 
 const HELP = `gitpushreview
 
 用法：
   gitpushreview init [--force] [--no-hook]
   gitpushreview check [--staged] [--json]
+  gitpushreview explain <file|--staged> [--json]
+  gitpushreview profile [--json]
   gitpushreview doctor
   gitpushreview bdr status
 
@@ -37,6 +41,7 @@ export async function routeCommand(args, context) {
       cwd: snapshot.root,
       diff: snapshot.diff,
       files: snapshot.files,
+      fileContents: snapshot.fileContents,
       env: context.env,
     });
     const exitCode = await handleReviewResult(result, {
@@ -46,6 +51,23 @@ export async function routeCommand(args, context) {
       ci: context.env.CI === 'true',
     });
     return { exitCode, output: '' };
+  }
+
+  if (args[0] === 'explain') {
+    if (args.length === 1 || (args.length === 2 && args.includes('--json'))) {
+      return { exitCode: 0, output: explainHelp() };
+    }
+    const json = args.includes('--json');
+    if (args.includes('--staged')) {
+      return explainStaged({ cwd: context.cwd, json });
+    }
+    const file = args.find((arg) => arg !== 'explain' && arg !== '--json');
+    return explainFile({ cwd: context.cwd, file, json });
+  }
+
+  if (args[0] === 'profile') {
+    const report = inspectProjectProfile({ cwd: context.cwd });
+    return { exitCode: 0, output: args.includes('--json') ? `${JSON.stringify(report, null, 2)}\n` : renderProjectProfile(report) };
   }
 
   if (args[0] === 'doctor') {

@@ -55,6 +55,8 @@ export function parseMarkdownRules(markdown, defaults = {}) {
       severity: meta.severity || 'medium',
       hardBlock: Boolean(meta.hardBlock),
       paths: meta.paths || [],
+      capabilities: meta.capabilities || [],
+      scope: meta.scope || '',
       body: text,
     });
   }

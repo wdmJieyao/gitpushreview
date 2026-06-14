@@ -70,6 +70,13 @@ gitpushreview init
 gitpushreview check --staged
 ```
 
+查看某个文件为什么会命中哪些规则和确定性检查：
+
+```bash
+gitpushreview explain sql/test.sql
+gitpushreview explain --staged
+```
+
 检查安装和配置状态：
 
 ```bash
@@ -84,7 +91,7 @@ gitpushreview doctor
 {
   "provider": "openai-compatible",
   "baseUrl": "https://api.example.com/v1",
-  "apiKey": "sk-...",
+  "apiKey": "",
   "apiKeyEnv": "GITPUSHREVIEW_API_KEY",
   "model": "gpt-4.1",
   "timeoutMs": 60000
@@ -99,7 +106,7 @@ gitpushreview doctor
 - `model`：模型名称。
 - `timeoutMs`：预留超时时间配置。
 
-如果不希望把密钥写进项目目录，可以只设置环境变量。
+建议不要把真实密钥提交到仓库。`apiKey` 适合本机未提交配置；团队项目更推荐把 `apiKey` 留空，只设置环境变量或由公司密钥系统注入。
 
 Windows 临时环境变量：
 
@@ -125,13 +132,62 @@ export GITPUSHREVIEW_API_KEY=...
 
 一次提交会按这个顺序准备审核上下文：
 
-1. 读取本次已暂存 diff。
-2. 读取 `.gitpushreview/vendor/bdr` 中的 BDR 坏味道上下文。
-3. 读取 `.gitpushreview/docs/default` 默认规则。
-4. 读取 `.gitpushreview/docs/project` 项目规则。
-5. 读取 `.gitpushreview/docs/diy` DIY 高优先级规则。
-6. 调用大模型生成 findings。
-7. 根据 finding 分数和拦截策略决定通过、软拦截或强拦截。
+1. 读取本次已暂存 diff 和 staged blob 内容。
+2. 运行确定性 Gate：先用纯本地逻辑识别 SQL、Java 内嵌 SQL、Kafka/RabbitMQ 配置等高风险能力标签，并强拦截低误报的明显错误。
+3. 读取 `.gitpushreview/vendor/bdr` 中的 BDR 坏味道上下文。
+4. 读取 `.gitpushreview/docs/default` 默认规则。
+5. 读取 `.gitpushreview/docs/project` 项目规则。
+6. 读取 `.gitpushreview/docs/diy` DIY 高优先级规则。
+7. 生成 Project Capability Routing 候选集：公共能力先识别，明确能力进入对应规则域，未知文件只进入受限公共兜底。
+8. 只把候选规则、确定性 Gate 的路由和 finding 注入大模型上下文，调用大模型生成补充 findings。
+9. 根据 finding 分数和拦截策略决定通过、软拦截或强拦截。
+
+确定性 Gate 不依赖大模型，命中强拦截时不会调用模型。当前默认覆盖：
+
+- 普通 `.sql`、`db/**`、`migrations/**` 中的 INSERT 列数和值数量不一致。
+- SQL 引号、括号等明显结构错误。
+- Java/MyBatis 注解或字符串中的内嵌 INSERT 列值数量不一致。
+- RabbitMQ/Kafka 明文密码、Kafka 生产环境自动创建 Topic、RabbitMQ 无限重新入队和非持久化关键消息配置。
+
+
+## Project Capability Routing
+
+GitPushReview 不再只依赖文件路径判断规则是否适用。每个暂存文件会先生成能力画像，例如：
+
+- `language.java`、`frontend.vue`、`language.python`
+- `persistence.sql`、`persistence.mybatis`、`persistence.sql.mysql`、`persistence.sql.oracle`
+- `middleware.mq`、`middleware.mq.kafka`、`middleware.mq.rabbitmq`、`middleware.redis`
+- `rules.drools`、`common.config`、`common.core`
+
+规则可以在 Markdown 元数据中声明 `capabilities`：
+
+```yaml
+score: 80
+severity: high
+hardBlock: false
+paths:
+  - src/main/resources/**/*.yml
+capabilities:
+  - middleware.mq
+  - middleware.mq.kafka
+```
+
+路由逻辑是：
+
+1. 老规则没有 `capabilities` 时，仍按 `paths` 兼容运行。
+2. 新规则同时配置 `paths` 和 `capabilities` 时，两者都要匹配才会进入候选集。
+3. 公共规则使用 `common.core` 或 `scope: common`，只做跨技术栈高信号检查。
+4. 无法识别能力的文件进入 `common.unknown-limited`，不会把 MySQL、Oracle、Drools、Redis、RabbitMQ 等专有规则全量扇出给模型。
+5. `gitpushreview explain <file> --json` 会输出能力标签、候选规则和被过滤规则摘要，方便排查为什么某条规则命中或没有命中。
+
+项目画像诊断：
+
+```bash
+gitpushreview profile
+gitpushreview profile --json
+```
+
+当前 `profile` 是只读诊断命令，只输出根据 `pom.xml`、`package.json`、Python manifest、mapper 目录等推断出的建议能力。`check` 和 `profile` 都不会静默写入 `.gitpushreview/config/project-profile.json`。后续如果加入 AI 学习，也必须先展示建议和证据，由用户确认后再写入。
 
 审核结果分为三种：
 
@@ -312,6 +368,9 @@ hardBlock: true
 paths:
   - backend/**/*.java
   - frontend/**/*.vue
+capabilities:
+  - language.java
+  - frontend.vue
 ```
 
 **规则说明**：
@@ -370,6 +429,10 @@ gitpushreview init --force
 gitpushreview init --no-hook
 gitpushreview check --staged
 gitpushreview check --staged --json
+gitpushreview explain <file>
+gitpushreview explain --staged
+gitpushreview profile
+gitpushreview profile --json
 gitpushreview doctor
 gitpushreview bdr status
 ```
@@ -381,7 +444,20 @@ gitpushreview bdr status
 - `init --no-hook`：只生成配置和规则文件，不安装 Git hook。
 - `check --staged`：审核本次已暂存变更。
 - `check --staged --json`：输出原始 JSON 结果，方便 CI 或脚本集成。
+- `explain <file>`：解释单个文件的能力标签、确定性检查和强拦截原因。
+- `explain --staged`：解释本次已暂存文件的路由、候选规则和确定性检查结果。
+- `profile`：只读诊断项目技术画像建议，不会写配置。
 - `doctor`：检查 Node、工作目录、模型配置、API Key、BDR 目录。
+
+## 重新初始化已有项目
+
+如果你之前已经在业务项目执行过 `gitpushreview init`，想拿到新版默认规则和 `capabilities` 元数据，可以在业务项目根目录执行：
+
+```bash
+gitpushreview init --force
+```
+
+注意：`--force` 会覆盖 `.gitpushreview/agent`、`.gitpushreview/docs`、`.gitpushreview/config/reviewmodel.json` 等初始化文件。执行前请先备份你手工改过的 project/diy 规则和模型配置。更稳妥的做法是先把 `.gitpushreview/docs/project`、`.gitpushreview/docs/diy` 和 `.gitpushreview/config/reviewmodel.json` 复制到临时位置，重新初始化后再合并。
 
 ## 本地开发
 

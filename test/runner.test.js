@@ -44,6 +44,68 @@ test('runReview prefers apiKey from reviewmodel config over environment variable
   assert.equal(result.decision.status, 'PASS');
 });
 
+test('runReview hard-blocks deterministic SQL finding before calling model', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-runner-deterministic-sql-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+  let called = false;
+
+  const result = await runReview({
+    cwd: dir,
+    diff: "diff --git a/sql/test.sql b/sql/test.sql\nnew file mode 100644\n--- /dev/null\n+++ b/sql/test.sql\n@@ -0,0 +1 @@\n+insert into users (id, name, email) values (1, 'Alice');\n",
+    files: ['sql/test.sql'],
+    modelInvoker: async () => {
+      called = true;
+      throw new Error('AI should not be called');
+    },
+    env: { GITPUSHREVIEW_API_KEY: 'test' },
+  });
+
+  assert.equal(called, false);
+  assert.equal(result.decision.status, 'HARD_BLOCK');
+  assert.equal(result.findings[0].source, 'deterministic');
+  assert.equal(result.findings[0].ruleId, 'DEFAULT-SQL-INSERT-ARITY-001');
+  assert.equal(result.findings[0].blocking, 'hard');
+});
+
+test('runReview uses staged file contents for deterministic hard blocks', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-runner-staged-blob-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+
+  const result = await runReview({
+    cwd: dir,
+    diff: "diff --git a/sql/test.sql b/sql/test.sql\n@@ -0,0 +1 @@\n+insert into users(id, name) values (1, 'ok');\n",
+    files: ['sql/test.sql'],
+    fileContents: { 'sql/test.sql': 'insert into users(id, name) values (1);' },
+    modelInvoker: async () => {
+      throw new Error('AI should not be called');
+    },
+    env: { GITPUSHREVIEW_API_KEY: 'test' },
+  });
+
+  assert.equal(result.decision.status, 'HARD_BLOCK');
+  assert.equal(result.findings[0].ruleId, 'DEFAULT-SQL-INSERT-ARITY-001');
+});
+
+test('runReview still calls model when deterministic gates pass', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-runner-deterministic-pass-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+  let called = false;
+
+  const result = await runReview({
+    cwd: dir,
+    diff: "diff --git a/sql/good.sql b/sql/good.sql\nnew file mode 100644\n--- /dev/null\n+++ b/sql/good.sql\n@@ -0,0 +1 @@\n+insert into users (id, name) values (1, 'Alice');\n",
+    files: ['sql/good.sql'],
+    modelInvoker: async () => {
+      called = true;
+      return '{"findings":[]}';
+    },
+    env: { GITPUSHREVIEW_API_KEY: 'test' },
+  });
+
+  assert.equal(called, true);
+  assert.equal(result.decision.status, 'PASS');
+});
+
 test('runReview downgrades hard model findings when the matched rule is soft-only', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-runner-soft-only-'));
   await initWorkspace({ cwd: dir, installHook: false });

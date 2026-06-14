@@ -9,6 +9,16 @@ test('routeCommand returns help for --help', async () => {
   assert.match(result.output, /用法/);
   assert.match(result.output, /init/);
   assert.match(result.output, /check/);
+  assert.match(result.output, /explain/);
+});
+
+test('routeCommand returns explain help in Chinese', async () => {
+  const result = await routeCommand(['explain'], { cwd: process.cwd(), env: {}, stdout: [] });
+
+  assert.equal(result.exitCode, 0);
+  assert.match(result.output, /用法/);
+  assert.match(result.output, /gitpushreview explain/);
+  assert.match(result.output, /规则|能力|路由|确定性/);
 });
 
 test('routeCommand reports unknown command in Chinese', async () => {

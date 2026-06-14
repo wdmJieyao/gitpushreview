@@ -60,3 +60,30 @@ hardBlockOnViolation: true
   assert.equal(sources[0].priority, 100);
   assert.deepEqual(sources[0].files, ['../docs/diy/auth.md']);
 });
+
+
+test('parseMarkdownRules keeps optional capability routing metadata', () => {
+  const markdown = `# Rules
+
+## DEFAULT-MQ-KAFKA-001 Kafka config
+
+\`\`\`yaml
+score: 80
+severity: high
+hardBlock: false
+scope: common
+paths:
+  - src/main/resources/**/*.yml
+capabilities:
+  - middleware.mq
+  - middleware.mq.kafka
+\`\`\`
+
+Kafka config must be safe.
+`;
+
+  const rules = parseMarkdownRules(markdown, { source: 'default', file: 'mq.md', weight: 1 });
+  assert.deepEqual(rules[0].capabilities, ['middleware.mq', 'middleware.mq.kafka']);
+  assert.equal(rules[0].scope, 'common');
+  assert.deepEqual(rules[0].paths, ['src/main/resources/**/*.yml']);
+});
