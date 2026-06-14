@@ -215,6 +215,52 @@ const demoSamples = [
     snippet: 'pragma autonomous_transaction; grant select any table to app_user;',
     expectedRules: ['DEFAULT-ORACLE-TXN-003', 'DEFAULT-ORACLE-PRIV-001'],
   },
+  {
+    name: 'MySQL migration drops partition and changes JSON query path without recovery evidence',
+    file: 'migrations/mysql/V20260617__archive_orders.sql',
+    snippet: 'alter table orders drop partition p202401; select * from orders where json_extract(ext, "$.channel") = "app";',
+    expectedRules: ['DEFAULT-MYSQL-PART-001', 'DEFAULT-MYSQL-JSON-001', 'DEFAULT-MYSQL-BACKUP-001'],
+  },
+  {
+    name: 'MySQL batch job updates many rows and needs execution-plan and replication review',
+    file: 'src/main/java/com/acme/job/OrderBackfillJob.java',
+    snippet: 'orderMapper.backfillAllPaidOrders(); // new large update without EXPLAIN, scan estimate, slow-query budget or binlog delay plan',
+    expectedRules: ['DEFAULT-MYSQL-PLAN-001', 'DEFAULT-MYSQL-REPL-001'],
+  },
+  {
+    name: 'Oracle partition maintenance uses database link and needs recovery window',
+    file: 'db/oracle/migrations/V20260618__exchange_order_partition.sql',
+    snippet: 'alter table orders exchange partition p202406 with table orders_stage; select * from user@prod_link; delete from orders where created_at < date "2024-01-01"; -- no Flashback/RMAN/export recovery window documented',
+    expectedRules: ['DEFAULT-ORACLE-PART-001', 'DEFAULT-ORACLE-DBLINK-001', 'DEFAULT-ORACLE-RECOVER-002'],
+  },
+  {
+    name: 'Oracle batch procedure changes core SQL without plan evidence',
+    file: 'db/oracle/packages/order_batch.pkb',
+    snippet: 'for r in c loop update orders set status = v_status where id = r.id; commit; end loop;',
+    expectedRules: ['DEFAULT-ORACLE-BULK-001', 'DEFAULT-ORACLE-PLAN-001'],
+  },
+  {
+    name: 'Drools rule uses global side effect and non-idempotent money logic',
+    file: 'rules/pricing/payment.drl',
+    snippet: `
+      global PaymentService paymentService;
+      then
+        paymentService.charge($order.getId(), new BigDecimal(0.1).divide(rate));
+    `,
+    expectedRules: ['DEFAULT-DROOLS-GLOBAL-001', 'DEFAULT-DROOLS-IDEMP-001', 'DEFAULT-DROOLS-NUM-001'],
+  },
+  {
+    name: 'Drools dynamic rule service loads remote rules without release guard',
+    file: 'src/main/java/com/acme/rules/RuleEngineService.java',
+    snippet: 'kieScanner.start(1000L); kieHelper.addContent(remoteDrlFromTenant, ResourceType.DRL);',
+    expectedRules: ['DEFAULT-DROOLS-RELEASE-001', 'DEFAULT-DROOLS-SEC-001'],
+  },
+  {
+    name: 'Drools rule depends on system time for entitlement boundary',
+    file: 'rules/entitlement/expire.drl',
+    snippet: 'eval(LocalDateTime.now().isAfter($contract.getExpireAt()))',
+    expectedRules: ['DEFAULT-DROOLS-TIME-001'],
+  },
 ];
 
 function allDefaultRules() {

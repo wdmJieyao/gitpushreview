@@ -126,6 +126,11 @@ const expectedRuleIds = {
     'DEFAULT-MYSQL-DML-003',
     'DEFAULT-MYSQL-SEQ-001',
     'DEFAULT-MYSQL-QUERY-003',
+    'DEFAULT-MYSQL-PLAN-001',
+    'DEFAULT-MYSQL-REPL-001',
+    'DEFAULT-MYSQL-BACKUP-001',
+    'DEFAULT-MYSQL-PART-001',
+    'DEFAULT-MYSQL-JSON-001',
   ],
   'docs/default/oracle.md': [
     'DEFAULT-ORACLE-SEC-001',
@@ -153,6 +158,11 @@ const expectedRuleIds = {
     'DEFAULT-ORACLE-MERGE-001',
     'DEFAULT-ORACLE-QUERY-001',
     'DEFAULT-ORACLE-RECOVER-001',
+    'DEFAULT-ORACLE-PLAN-001',
+    'DEFAULT-ORACLE-PART-001',
+    'DEFAULT-ORACLE-BULK-001',
+    'DEFAULT-ORACLE-DBLINK-001',
+    'DEFAULT-ORACLE-RECOVER-002',
   ],
   'docs/default/drools.md': [
     'DEFAULT-DROOLS-DRL-001',
@@ -163,6 +173,12 @@ const expectedRuleIds = {
     'DEFAULT-DROOLS-FACT-002',
     'DEFAULT-DROOLS-FACT-003',
     'DEFAULT-DROOLS-PERF-001',
+    'DEFAULT-DROOLS-GLOBAL-001',
+    'DEFAULT-DROOLS-IDEMP-001',
+    'DEFAULT-DROOLS-TIME-001',
+    'DEFAULT-DROOLS-NUM-001',
+    'DEFAULT-DROOLS-RELEASE-001',
+    'DEFAULT-DROOLS-SEC-001',
     'DEFAULT-DROOLS-MAINT-001',
     'DEFAULT-DROOLS-MAINT-002',
   ],
@@ -245,7 +261,7 @@ test('every default rule is Chinese, structured, scoped, and parseable', () => {
     }
   }
 
-  assert.equal(allRuleIds.length, 150);
+  assert.equal(allRuleIds.length, 166);
   assert.equal(new Set(allRuleIds).size, allRuleIds.length, 'default rule ids should be unique');
 });
 
@@ -301,6 +317,23 @@ test('java default path scopes cover common Spring and MyBatis project layouts',
   assert.match(parserLimits.title, /输入大小|深度|未知字段/);
 });
 
+test('database runtime rules keep high-confidence hard blocks separate from review-only risks', () => {
+  const mysqlRules = new Map(rulesForDefaultDoc('docs/default/mysql.md').map((rule) => [rule.id, rule]));
+  const oracleRules = new Map(rulesForDefaultDoc('docs/default/oracle.md').map((rule) => [rule.id, rule]));
+  const droolsRules = new Map(rulesForDefaultDoc('docs/default/drools.md').map((rule) => [rule.id, rule]));
+
+  assert.equal(mysqlRules.get('DEFAULT-MYSQL-BACKUP-001').hardBlock, true);
+  assert.equal(mysqlRules.get('DEFAULT-MYSQL-PLAN-001').hardBlock, false);
+  assert.equal(mysqlRules.get('DEFAULT-MYSQL-REPL-001').hardBlock, false);
+
+  assert.equal(oracleRules.get('DEFAULT-ORACLE-DBLINK-001').hardBlock, false);
+  assert.equal(oracleRules.get('DEFAULT-ORACLE-PART-001').hardBlock, true);
+  assert.equal(oracleRules.get('DEFAULT-ORACLE-RECOVER-002').hardBlock, true);
+
+  assert.equal(droolsRules.get('DEFAULT-DROOLS-SEC-001').hardBlock, true);
+  assert.equal(droolsRules.get('DEFAULT-DROOLS-TIME-001').hardBlock, false);
+});
+
 test('initialized workspace can load all default rules end-to-end', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-default-rules-'));
   await initWorkspace({ cwd: dir, force: false, installHook: false });
@@ -310,5 +343,5 @@ test('initialized workspace can load all default rules end-to-end', async () => 
   assert.ok(source, 'initialized workspace should include Default Rules source');
 
   const rules = loadMarkdownRules({ workspaceRoot, source });
-  assert.equal(rules.length, 150);
+  assert.equal(rules.length, 166);
 });

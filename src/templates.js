@@ -129,6 +129,9 @@ const mysqlPaths = [
   '**/*Repository*.java',
   '**/*DAO*.java',
   '**/*Dao*.java',
+  '**/*Service*.java',
+  '**/*Job*.java',
+  '**/*Task*.java',
   '**/*Repository*',
   '**/*DAO*',
 ];
@@ -147,6 +150,10 @@ const oraclePaths = [
   '**/*Repository*.java',
   '**/*DAO*.java',
   '**/*Dao*.java',
+  '**/*Service*.java',
+  '**/*Job*.java',
+  '**/*Task*.java',
+  '**/*Oracle*.java',
   '**/*Repository*',
   '**/*DAO*',
 ];
@@ -341,6 +348,11 @@ const mysqlRules = [
   rule('DEFAULT-MYSQL-DML-003', '禁止用 REPLACE INTO 替代安全 upsert', 70, 'high', false, mysqlPaths, '不得在不了解删除再插入语义的情况下使用 REPLACE INTO 处理幂等或更新。', ['检查 REPLACE INTO 是否作用于有外键、触发器、自增主键、审计字段或级联关系的表。', '检查冲突时是否会删除旧行并重新插入，导致关联和审计语义变化。'], 'REPLACE INTO 可能触发级联删除、重置自增值、覆盖审计字段或造成业务状态丢失。', ['优先使用 INSERT ... ON DUPLICATE KEY UPDATE 并明确更新字段。', '幂等写入应使用唯一键、状态机和影响行数校验。'], 'MySQL REPLACE Statement；MySQL INSERT ON DUPLICATE KEY UPDATE。'),
   rule('DEFAULT-MYSQL-SEQ-001', '禁止用 MAX(id)+1 生成主键、流水号或业务序号', 90, 'critical', true, mysqlPaths, '生产写入不得通过 SELECT MAX(id)+1、count+1 或查询当前最大值的方式生成并发唯一标识。', ['检查 INSERT SELECT MAX(id)+1、先查最大号再插入、应用内自增计数等模式。', '检查流水号是否在并发、重试和多节点场景下保持唯一。'], '并发请求会生成重复编号，造成主键冲突、覆盖业务单据或重复履约。', ['使用数据库自增、序列服务、雪花算法或带唯一约束的发号表。', '为并发创建、重试和回滚场景补充测试。'], 'MySQL AUTO_INCREMENT；阿里巴巴数据库规约；并发唯一性实践。'),
   rule('DEFAULT-MYSQL-QUERY-003', 'NOT IN 子查询字段可为空时必须改写', 60, 'high', false, mysqlPaths, '当子查询字段可能包含 NULL 时，不得直接使用 NOT IN 表达反关联语义。', ['检查 NOT IN 子查询的选择列是否可能为 NULL。', '检查是否有 IS NOT NULL 过滤、NOT EXISTS 改写或左连接反查。'], 'SQL 三值逻辑会让 NOT IN 遇到 NULL 后返回非预期结果，导致漏查、漏删或错误报表。', ['改用 NOT EXISTS。', '若继续使用 NOT IN，必须显式过滤子查询 NULL 并补充边界测试。'], 'MySQL Subquery Optimization；SQL NULL three-valued logic。'),
+  rule('DEFAULT-MYSQL-PLAN-001', '核心 SQL 变更必须提供执行计划和慢查询预算', 60, 'high', false, mysqlPaths, '新增或修改核心查询、报表、导出、搜索和批处理 SQL 时，应说明 EXPLAIN 结果、预期扫描行数、索引命中和慢查询预算。', ['检查复杂 join、子查询、排序、分组、大结果集和热点接口 SQL 是否有执行计划证据。', '检查是否说明表规模、选择性、慢查询阈值、监控指标和回退方案。'], '缺少执行计划验证会让全表扫描、临时表、filesort 或错误索引选择在生产流量下放大为慢查询事故。', ['补充 EXPLAIN/ANALYZE、索引验证和慢查询预算。', '对高风险 SQL 增加灰度观察、开关或回退脚本。'], 'MySQL EXPLAIN；MySQL Optimizer；阿里巴巴数据库规约。'),
+  rule('DEFAULT-MYSQL-REPL-001', '大批量写入和 DDL 必须评估 binlog、复制延迟和只读副本影响', 65, 'high', false, mysqlPaths, '大批量 DML、DDL、回填、归档和清理任务应评估 binlog 体积、复制延迟、只读副本查询和主从切换影响。', ['检查是否一次写入或修改大量数据。', '检查是否说明 binlog 格式、复制延迟监控、限速、批次大小和只读流量保护。'], '复制延迟会导致读写不一致、报表错误、缓存污染和主从切换风险。', ['按主键或时间窗口限速分批执行。', '发布时观察复制延迟和只读副本负载，必要时暂停或降级。'], 'MySQL Replication；MySQL Binary Log；数据迁移发布实践。'),
+  rule('DEFAULT-MYSQL-BACKUP-001', '破坏性 DML、数据修复和批量迁移必须有备份、校验和恢复方案', 90, 'critical', true, mysqlPaths, '涉及删除、覆盖、批量修复、历史数据迁移和高风险回填时，必须能说明执行前备份、影响行数校验、抽样验证和恢复路径。', ['检查 DELETE/UPDATE/MERGE/DROP/TRUNCATE、分区清理和历史数据归档脚本是否有 dry-run 或影响范围预估。', '检查是否提供备份、恢复 SQL、校验 SQL、执行窗口和责任人。'], '数据修复一旦写错可能造成不可逆数据损坏、账务差异或跨租户数据污染。', ['执行前备份或快照关键数据。', '分批执行并记录影响行数，执行后用校验 SQL 验证结果。'], 'MySQL Backup and Recovery；阿里巴巴数据库规约；生产数据修复实践。'),
+  rule('DEFAULT-MYSQL-PART-001', '分区表变更必须校验唯一键、分区裁剪和破坏性分区操作', 80, 'critical', true, mysqlPaths, '新增、调整、交换、清理或删除分区时，必须说明分区键、唯一键约束、分区裁剪效果、归档备份和回滚策略。', ['检查 DROP/TRUNCATE/EXCHANGE PARTITION 是否有备份和校验。', '检查唯一键是否包含分区键，查询条件是否能利用分区裁剪。'], '分区维护错误可能直接丢失整段历史数据，或让查询退化为扫描所有分区。', ['先归档和校验待处理分区。', '为分区键、唯一键和核心查询补充验证 SQL 与回滚方案。'], 'MySQL Partitioning；MySQL ALTER TABLE Partition Operations。'),
+  rule('DEFAULT-MYSQL-JSON-001', 'JSON 字段用于查询时必须有结构约束和索引策略', 55, 'high', false, mysqlPaths, 'JSON 字段承载查询、过滤、排序或唯一语义时，应声明结构约束、字段兼容策略和生成列或函数索引方案。', ['检查 JSON_EXTRACT、->、->> 是否出现在热点 where/order by/group by。', '检查 JSON 文档结构是否有服务端校验、版本兼容和索引策略。'], '无约束 JSON 会让结构漂移、索引缺失和类型比较问题在生产中表现为慢查询或脏数据。', ['为热点 JSON 路径建立生成列或函数索引。', '用 DTO/schema 校验 JSON 结构，并为版本演进保留兼容策略。'], 'MySQL JSON Data Type；MySQL Generated Columns；MySQL Functional Indexes。'),
 ];
 
 const oracleRules = [
@@ -369,6 +381,11 @@ const oracleRules = [
   rule('DEFAULT-ORACLE-MERGE-001', 'MERGE 源数据必须保证匹配键唯一', 70, 'high', false, oraclePaths, '使用 MERGE 做同步、修复或迁移时，源数据的 ON 匹配键必须唯一且可验证。', ['检查 USING 子查询或临时表是否可能出现重复匹配键。', '检查是否有去重、唯一约束或执行前校验 SQL。'], '重复匹配会导致运行时错误、不稳定更新或重复覆盖业务数据。', ['对源数据先 group by/row_number 去重。', '在 stage 表增加唯一约束或执行前重复键检查。'], 'Oracle MERGE Statement；Oracle Data Integrity。'),
   rule('DEFAULT-ORACLE-QUERY-001', 'NOT IN 子查询字段可为空时必须改写', 60, 'high', false, oraclePaths, '当子查询字段可能包含 NULL 时，不得直接使用 NOT IN 表达反关联语义。', ['检查 NOT IN 子查询的选择列是否可能为 NULL。', '检查是否使用 NOT EXISTS、LEFT JOIN 反查或显式 IS NOT NULL。'], 'Oracle 三值逻辑会让 NOT IN 遇到 NULL 后返回非预期结果，造成漏查、漏删或错误报表。', ['改写为 NOT EXISTS。', '保留 NOT IN 时显式过滤 NULL 并补充边界测试。'], 'Oracle SQL Conditions；SQL NULL three-valued logic。'),
   rule('DEFAULT-ORACLE-RECOVER-001', 'NOLOGGING 和直接路径批量写入必须说明恢复与备库影响', 65, 'high', false, oraclePaths, '新增 NOLOGGING、APPEND、直接路径装载或大批量索引构建时，必须说明介质恢复、备库同步和补救策略。', ['检查 CREATE INDEX/ALTER TABLE/INSERT APPEND 是否使用 NOLOGGING。', '检查是否说明备份、Data Guard、补录或重建方案。'], 'NOLOGGING 可能影响恢复链路和备库一致性，故障时导致对象不可恢复或数据缺口。', ['仅在受控窗口使用，并在执行后备份或重建备库对象。', '关键业务表默认保持可恢复写入。'], 'Oracle NOLOGGING；Oracle Data Guard；Oracle Backup and Recovery。'),
+  rule('DEFAULT-ORACLE-PLAN-001', '核心 SQL 变更必须提供执行计划稳定性证据', 60, 'high', false, oraclePaths, '核心查询、报表、批处理、MERGE 和复杂 PL/SQL SQL 变更应说明执行计划、统计信息依赖、索引选择和回退方案。', ['检查是否涉及大表 join、函数谓词、排序、分页、聚合或绑定变量敏感 SQL。', '检查是否提供 DBMS_XPLAN、AWR/ASH 观察、SQL Plan Baseline 或灰度验证策略。'], '执行计划漂移会让核心接口从毫秒级退化到秒级或分钟级，并可能放大锁等待和资源争用。', ['补充执行计划和关键统计信息说明。', '必要时使用 SQL Plan Baseline、索引验证或灰度观察。'], 'Oracle Optimizer；DBMS_XPLAN；Oracle SQL Plan Management。'),
+  rule('DEFAULT-ORACLE-PART-001', '分区表变更必须说明分区键、裁剪效果和全局索引维护', 85, 'critical', true, oraclePaths, 'Oracle 分区表新增、拆分、合并、交换、截断或删除分区时，必须说明分区键、裁剪效果、全局索引状态、归档备份和回退策略。', ['检查 ALTER TABLE ... PARTITION、EXCHANGE PARTITION、DROP/TRUNCATE PARTITION 是否出现。', '检查全局索引是否会失效，分区交换表是否校验结构和数据范围。'], '分区维护错误可能丢失整段数据、让全局索引不可用，或让核心查询无法分区裁剪。', ['先备份或归档目标分区并校验边界。', '说明 UPDATE GLOBAL INDEXES、索引重建、交换表校验和回退路径。'], 'Oracle Partitioning；Oracle Global Index Maintenance。'),
+  rule('DEFAULT-ORACLE-BULK-001', '批处理脚本必须可重入、可断点续跑并隔离失败批次', 65, 'high', false, oraclePaths, '批量修复、迁移、清理和同步脚本应具备批次记录、断点续跑、失败隔离、提交粒度和结果校验。', ['检查循环内 commit 是否无策略或过于频繁。', '检查失败后是否能从上次成功批次恢复，重复执行是否幂等。'], '批处理不可恢复会导致重复修复、漏处理、长事务、undo 压力或人工补数据风险。', ['按主键、时间或业务键分批并记录进度。', '为每批记录输入范围、影响行数、失败原因和校验结果。'], 'Oracle PL/SQL Bulk Processing；Oracle COMMIT；批处理发布实践。'),
+  rule('DEFAULT-ORACLE-DBLINK-001', 'DBLink 和跨库访问必须限制权限、事务边界和敏感数据范围', 85, 'critical', false, oraclePaths, '新增 DBLink、跨 schema 视图、同义词或远程过程调用时，必须说明最小权限、凭据保护、数据范围、事务一致性和审计；只有高权限、明文凭据或敏感数据跨库读取证据明确时才升级为硬风险。', ['检查 CREATE DATABASE LINK、远程对象 @link、跨库 synonym/view 是否出现。', '检查是否使用高权限账号、固定明文密码或跨库读取敏感数据。'], 'DBLink 会扩大数据库信任边界，凭据泄露或权限过宽会造成跨库数据泄露和横向移动。', ['使用最小权限专用账号和受控网络访问。', '敏感数据跨库访问必须脱敏、审计并限制查询范围。'], 'Oracle Database Links；Oracle Security Guide；最小权限原则。'),
+  rule('DEFAULT-ORACLE-RECOVER-002', '破坏性数据修复必须说明 Flashback、备份和恢复窗口', 90, 'critical', true, oraclePaths, '删除、覆盖、批量修复、分区维护和历史数据迁移必须说明 Flashback 可用性、备份点、恢复窗口、验证 SQL 和失败处置。', ['检查高风险 DML/DDL 是否只有执行 SQL、缺少恢复说明。', '检查是否评估 undo 保留、Flashback Table/Query、RMAN 或导出备份可用性。'], '数据修复失败可能超出 Flashback/undo 窗口，导致无法快速恢复或只能人工补偿。', ['执行前确认恢复窗口和备份点。', '提供执行前后校验 SQL、影响行数和恢复步骤。'], 'Oracle Flashback；Oracle Backup and Recovery；生产数据修复实践。'),
 ];
 
 const droolsRules = [
@@ -380,6 +397,12 @@ const droolsRules = [
   rule('DEFAULT-DROOLS-FACT-002', 'insert、retract、delete 必须限制副作用范围', 75, 'high', true, droolsPaths, '新增、撤回或删除 fact 会改变整个规则网络，必须限制条件和生命周期。', ['检查无条件 insert 是否可能重复创建 fact。', '检查 retract/delete 是否过早移除其他规则需要的事实。'], '事实生命周期错误会造成级联触发、漏判或错误决策。', ['为 insert/delete 增加条件和状态标记。', '为事实生命周期补充回归样例。'], 'Drools insert；Drools delete；Fact lifecycle。'),
   rule('DEFAULT-DROOLS-FACT-003', 'RHS consequence 不应承载外部不可回滚副作用', 80, 'critical', true, ['**/*.drl'], '规则 RHS 不应直接发 HTTP、写数据库、发消息、扣费或删文件等不可回滚操作。', ['检查 consequence 中是否调用外部网关、DAO、消息发送或文件操作。', '检查重复激活时副作用是否幂等。'], '规则重复触发或回滚失败会造成重复扣费、脏写和外部系统不一致。', ['在 RHS 只产生命令或事件 fact。', '由应用层统一处理副作用和事务。'], 'Drools consequence model；Working Memory semantics。'),
   rule('DEFAULT-DROOLS-PERF-001', '复杂条件应避免不可索引和高成本匹配', 45, 'medium', false, ['**/*.drl'], '规则条件应避免大量 eval、深层 from 和跨大集合笛卡尔匹配。', ['检查 eval 中复杂函数和外部调用。', '检查 from 是否遍历大集合或嵌套集合。'], '高成本匹配会让事实数量增长后性能急剧退化。', ['把可索引字段放入约束。', '预处理大集合或拆分规则。'], 'Drools constraints；Drools eval；Drools from。'),
+  rule('DEFAULT-DROOLS-GLOBAL-001', 'global 不得承载可变业务状态或跨规则共享副作用', 85, 'critical', true, droolsPaths, 'Drools global 只能作为只读服务或配置入口，不得保存决策状态、跨规则可变集合，或在规则中直接写库、发消息、调用远程副作用。', ['检查 global List/Map/DAO/Service 是否被 RHS 修改或用于保存结果。', '检查 global 调用是否绕过事务、幂等、审计和异常处理。'], 'global 可变状态会污染多次执行和并发会话，外部副作用会造成重复执行和事务不一致。', ['把结果写成 fact 或命令对象，由应用层统一提交。', 'global 如用于服务调用，必须只读、幂等并受应用层隔离。'], 'Drools Globals；Drools Stateless/Stateful Sessions；规则引擎实践。'),
+  rule('DEFAULT-DROOLS-IDEMP-001', '关键规则执行结果必须具备幂等键或状态推进', 85, 'critical', true, droolsPaths, '资金、库存、权限、审批、履约、计费和风控规则不得只依赖规则触发次数，必须用幂等键、状态机或结果 fact 防止重复生效。', ['检查 RHS 是否直接累加金额、扣减库存、授予权限或改变订单状态。', '检查重复 insert/update、重试和多次 fireAllRules 是否会重复生效。'], '规则重复激活或重试会造成重复扣费、重复发券、重复审批或权限状态错乱。', ['用业务幂等键、状态推进和唯一约束保护结果。', '为重复执行、重试和并发场景补充规则测试。'], 'Drools Agenda；幂等设计；风控规则实践。'),
+  rule('DEFAULT-DROOLS-TIME-001', '日期时间规则必须显式时区、时钟来源和边界语义', 70, 'high', false, droolsPaths, '涉及账期、合同、权益、活动、风控有效期和过期判断的规则必须明确时区、时钟来源、日期闭区间/开区间和夏令时边界。', ['检查 LocalDateTime.now、new Date、系统默认时区和字符串日期比较。', '检查生效/失效边界是否说明包含当天、当天结束或精确到秒。'], '时间语义不清会导致权益提前失效、计费跨期、风控绕过或审计时间错乱。', ['由应用层注入统一 Clock 或业务日期。', '在规则中明确时区和边界，并补充跨日、月底和 DST 样例。'], 'Java Time API；Drools temporal reasoning；业务时间建模。'),
+  rule('DEFAULT-DROOLS-NUM-001', '金额、比例和阈值计算必须使用 BigDecimal 安全比较与明确舍入', 80, 'critical', true, droolsPaths, '规则中涉及金额、折扣、费率、税费、积分和阈值判断时，不得使用 double 精度、BigDecimal equals 或缺省舍入的 divide。', ['检查 BigDecimal.equals、new BigDecimal(double)、divide 未指定 RoundingMode。', '检查 DRL 中数字字面量和 Java 规则服务是否保持精度一致。'], '金额精度错误会导致计费、折扣、税费和风控阈值判断偏差。', ['使用 compareTo 做数值比较。', '统一 scale 和 RoundingMode，并用字符串或整数最小单位构造金额。'], 'JDK BigDecimal；阿里巴巴 Java 开发手册；金融计算实践。'),
+  rule('DEFAULT-DROOLS-RELEASE-001', '规则热更新必须具备版本、灰度、回滚和兼容策略', 90, 'critical', true, droolsPaths, 'KieScanner、KieContainer、动态规则包或配置中心下发规则时，必须记录规则版本、灰度范围、回滚包、事实模型兼容和审计追踪。', ['检查是否引入动态加载 DRL、Maven KJAR 热更新或远程规则配置。', '检查规则包与事实类、枚举、字段和旧会话是否兼容。'], '无治理热更新会把错误规则直接推到生产，导致大面积错误决策且难以回滚。', ['规则包必须版本化、灰度发布并保留回滚版本。', '关键规则发布前后记录命中率、输入摘要和决策差异。'], 'Drools KIE Scanner；KIE Containers；规则发布治理。'),
+  rule('DEFAULT-DROOLS-SEC-001', '不得执行不可信来源的 DRL、MVEL、表达式或动态规则包', 95, 'critical', true, droolsPaths, 'DRL、MVEL、Java dialect、规则模板和动态规则包不得直接来自用户、租户、接口、数据库可编辑内容或未签名远程来源。', ['检查是否允许上传、编辑或远程拉取规则后直接编译执行。', '检查是否限制 import、反射、文件、网络、系统属性和危险类调用。'], '不可信规则执行等同代码执行，可能导致 RCE、越权访问、数据泄露或规则污染。', ['只允许可信源码或签名规则包进入执行器。', '多租户或在线编辑场景必须使用受限 DSL、白名单、沙箱和审计。'], 'Drools Security；MVEL security；OWASP Injection。'),
   rule('DEFAULT-DROOLS-MAINT-001', '禁止通过隐式执行顺序表达业务依赖', 50, 'high', false, ['**/*.drl'], '规则间依赖不应只靠文件顺序、salience 魔法数或 agenda 切换暗含。', ['检查规则是否依赖前一条规则先执行但没有状态 fact。', '检查规则流是否有可读说明。'], '隐式顺序会让新增规则破坏旧业务结果。', ['使用显式状态 fact 或规则流。', '为关键顺序写明业务含义和测试。'], 'Drools agenda；Drools rule attributes。'),
   rule('DEFAULT-DROOLS-MAINT-002', 'DRL 资产必须按业务域分包并配套规则测试', 40, 'medium', false, droolsPaths, '规则文件应按业务域组织，并保留可回归的规则样例或测试。', ['检查大型 DRL 是否混合多个业务域。', '检查新增规则是否有典型输入输出样例。'], '缺少组织和测试会导致规则资产难维护、难回归。', ['按业务域拆分 package 和文件。', '为新增规则补充 KIE 测试或样例。'], 'KIE rule assets；Drools test scenarios。'),
 ];
