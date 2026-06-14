@@ -56,6 +56,10 @@ export function parseMarkdownRules(markdown, defaults = {}) {
       hardBlock: Boolean(meta.hardBlock),
       paths: meta.paths || [],
       capabilities: meta.capabilities || [],
+      signalPaths: meta.signalPaths || [],
+      signalContent: meta.signalContent || [],
+      evidencePatterns: meta.evidencePatterns || [],
+      allowUnknownExpansion: Boolean(meta.allowUnknownExpansion),
       scope: meta.scope || '',
       body: text,
     });

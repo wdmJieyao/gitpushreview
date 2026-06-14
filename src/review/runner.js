@@ -8,6 +8,7 @@ import { buildReviewMessages } from './prompt.js';
 import { parseReviewJson } from './result.js';
 import { runDeterministicGates } from '../gates/deterministic.js';
 import { routeRulesForFiles } from '../rules/router.js';
+import { runRuleEvidence } from '../evidence/rule-evidence.js';
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -51,8 +52,10 @@ export async function runReview({ cwd, diff, files, fileContents = {}, modelInvo
     : { text: '', skills: [] };
   const modelConfig = readJson(path.join(workspaceRoot, 'config', 'reviewmodel.json'));
   const gateResult = runDeterministicGates({ files, diff, fileContents });
-  const routedRules = routeRulesForFiles({ rules: markdownRules, routes: gateResult.routes });
-  const messages = buildReviewMessages({ reviewAgent, policy: policy.raw, bdrContext, rules: routedRules.rules, diff, files, deterministicFindings: gateResult.findings, routes: gateResult.routes, ruleRouting: routedRules.diagnostics });
+  const routedRules = routeRulesForFiles({ rules: markdownRules, routes: gateResult.routes, fileContents });
+  const staticEvidence = runRuleEvidence({ rules: routedRules.rules, routes: gateResult.routes, fileContents, ruleRouting: routedRules.diagnostics });
+  const staticFindings = [...gateResult.findings, ...staticEvidence];
+  const messages = buildReviewMessages({ reviewAgent, policy: policy.raw, bdrContext, rules: routedRules.rules, diff, files, deterministicFindings: staticFindings, routes: gateResult.routes, ruleRouting: routedRules.diagnostics });
   const invoke = modelInvoker || ((input) => callReviewModel({
     config: modelConfig,
     env,
@@ -66,6 +69,6 @@ export async function runReview({ cwd, diff, files, fileContents = {}, modelInvo
     decision: decideReview(findings, policy),
     routes: gateResult.routes,
     ruleRouting: routedRules.diagnostics,
-    deterministicFindings: gateResult.findings,
+    deterministicFindings: staticFindings,
   };
 }

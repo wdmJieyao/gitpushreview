@@ -52,3 +52,38 @@ test('explain --json returns stable machine-readable details', async () => {
   assert.ok(parsed.routes.labels.includes('sql'));
   assert.equal(parsed.findings[0].ruleId, 'DEFAULT-SQL-INSERT-ARITY-001');
 });
+
+
+test('explain renders static evidence as non-blocking clue', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-explain-static-evidence-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+  const diyRule = [
+    '# Payment',
+    '',
+    '## DIY-PAY-999 支付回调必须幂等',
+    '',
+    '~~~yaml',
+    'score: 90',
+    'severity: critical',
+    'hardBlock: true',
+    'paths:',
+    '  - docs/**/*.rulebook',
+    'allowUnknownExpansion: true',
+    'signalContent:',
+    '  - payment callback',
+    'evidencePatterns:',
+    '  - pay-callback|payment callback|检测到支付回调变更',
+    '~~~',
+    '',
+    '**规则说明**：支付回调必须幂等。',
+  ].join('\n').replace(/~~~/g, '```');
+  fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.gitpushreview/docs/diy/auth.md'), diyRule, 'utf8');
+  fs.writeFileSync(path.join(dir, 'docs/payment.rulebook'), 'payment callback must be idempotent', 'utf8');
+
+  const result = await routeCommand(['explain', 'docs/payment.rulebook'], { cwd: dir, env: {}, stdout: [] });
+
+  assert.equal(result.exitCode, 0);
+  assert.match(result.output, /证据线索/);
+  assert.doesNotMatch(result.output, /软拦截.*DIY-PAY-999/);
+});

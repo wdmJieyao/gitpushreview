@@ -177,7 +177,7 @@ AI 复审并返回 findings
 - Kafka 生产配置：进入 `common.config`、`middleware.mq`、`middleware.mq.kafka`。
 - 无法识别的文件：进入 `common.unknown-limited`，不会扇出 MySQL、Oracle、Drools、Redis、RabbitMQ 等专有规则。
 
-规则可以声明能力域：
+规则可以声明能力域，也可以声明路由信号和静态证据模式：
 
 ```yaml
 paths:
@@ -185,9 +185,14 @@ paths:
 capabilities:
   - middleware.mq
   - middleware.mq.kafka
+signalContent:
+  - spring\.kafka
+  - KafkaTemplate
+evidencePatterns:
+  - kafka-auto-create|auto-create\s*:\s*true|检测到 Kafka 自动创建 Topic 配置
 ```
 
-同时满足 `paths` 和 `capabilities` 的规则，才会进入 AI 候选规则上下文。没有 `capabilities` 的旧规则仍按 `paths` 兼容运行，但 unknown-limited 文件只允许公共规则进入。
+普通已识别文件仍必须满足 `paths + capabilities` 才会进入 AI 候选规则上下文，`signalPaths` 和 `signalContent` 只作为补充证据，不会绕过基础适用范围。没有 `capabilities` 的旧规则仍按 `paths` 兼容运行。识别不到能力的 unknown-limited 文件默认只允许公共规则进入；如果某条规则显式设置 `allowUnknownExpansion: true`，并且 `signalPaths` 或 `signalContent` 命中，才允许作为低置信扩展候选进入 AI 复审。`evidencePatterns` 只提取静态证据线索，不直接决定 blocking。
 
 ## 规则目录
 

@@ -108,3 +108,47 @@ test('runReview does not route database or middleware rules into ordinary Java s
   assert.doesNotMatch(prompt, /DEFAULT-RABBITMQ-/);
   assert.doesNotMatch(prompt, /DEFAULT-REDIS-/);
 });
+
+
+test('runReview expands unknown files only through explicit rule signals and sends evidence to AI', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-runner-signal-routing-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+  const diyRule = [
+    '# Payment',
+    '',
+    '## DIY-PAY-999 支付回调必须幂等',
+    '',
+    '~~~yaml',
+    'score: 90',
+    'severity: critical',
+    'hardBlock: true',
+    'paths:',
+    '  - docs/**/*.rulebook',
+    'allowUnknownExpansion: true',
+    'signalContent:',
+    '  - payment callback',
+    'evidencePatterns:',
+    '  - pay-callback|payment callback|检测到支付回调变更',
+    '~~~',
+    '',
+    '**规则说明**：支付回调必须幂等。',
+  ].join('\n').replace(/~~~/g, '```');
+  fs.writeFileSync(path.join(dir, '.gitpushreview/docs/diy/auth.md'), diyRule, 'utf8');
+  let prompt = '';
+
+  await runReview({
+    cwd: dir,
+    diff: 'diff --git a/docs/payment.rulebook b/docs/payment.rulebook\n+payment callback must be idempotent\n',
+    files: ['docs/payment.rulebook'],
+    fileContents: { 'docs/payment.rulebook': 'payment callback must be idempotent' },
+    modelInvoker: async ({ messages }) => {
+      prompt = messages[1].content;
+      return '{"findings":[]}';
+    },
+    env: { GITPUSHREVIEW_API_KEY: 'test' },
+  });
+
+  assert.match(prompt, /DIY-PAY-999/);
+  assert.match(prompt, /signal-content/);
+  assert.match(prompt, /检测到支付回调变更/);
+});

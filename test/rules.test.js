@@ -87,3 +87,29 @@ Kafka config must be safe.
   assert.equal(rules[0].scope, 'common');
   assert.deepEqual(rules[0].paths, ['src/main/resources/**/*.yml']);
 });
+
+
+test('parseMarkdownRules keeps rule-driven signal and evidence metadata', () => {
+  const markdown = '# Rules\n\n' +
+    '## DIY-PAY-001 Payment callback\n\n' +
+    '\`\`\`yaml\n' +
+    'score: 80\n' +
+    'severity: high\n' +
+    'hardBlock: false\n' +
+    'allowUnknownExpansion: true\n' +
+    'signalPaths:\n' +
+    '  - docs/**/*.rulebook\n' +
+    'signalContent:\n' +
+    '  - payment callback\n' +
+    '  - idempotent\n' +
+    'evidencePatterns:\n' +
+    '  - pay-callback|payment callback|检测到支付回调变更\n' +
+    '\`\`\`\n\n' +
+    'Payment callback must be idempotent.\n';
+
+  const rules = parseMarkdownRules(markdown, { source: 'diy', file: 'payment.md', weight: 2 });
+  assert.equal(rules[0].allowUnknownExpansion, true);
+  assert.deepEqual(rules[0].signalPaths, ['docs/**/*.rulebook']);
+  assert.deepEqual(rules[0].signalContent, ['payment callback', 'idempotent']);
+  assert.deepEqual(rules[0].evidencePatterns, ['pay-callback|payment callback|检测到支付回调变更']);
+});

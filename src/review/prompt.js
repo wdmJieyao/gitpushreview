@@ -6,7 +6,13 @@ function renderDeterministicContext({ routes = [], deterministicFindings = [], r
     ? deterministicFindings.map((finding) => `- ${finding.ruleId} [${finding.blocking}] ${finding.file || ''}${finding.line ? `:${finding.line}` : ''} ${finding.evidence || ''}`).join('\n')
     : '无';
   const routingText = ruleRouting
-    ? `totalRules=${ruleRouting.totalRules} selectedRules=${ruleRouting.selectedRules} excludedRules=${ruleRouting.excludedRules}`
+    ? [
+        `totalRules=${ruleRouting.totalRules} selectedRules=${ruleRouting.selectedRules} excludedRules=${ruleRouting.excludedRules}`,
+        ...(ruleRouting.decisions || [])
+          .filter((item) => item.matched)
+          .slice(0, 30)
+          .map((item) => `- ${item.ruleId}: ${item.matchReason}`),
+      ].join('\n')
     : '无';
   return `# Static Evidence Context\n\n## Routes\n${routeText}\n\n## Rule Routing\n${routingText}\n\n## Findings\n${findingText}`;
 }
@@ -28,7 +34,7 @@ export function buildReviewMessages({ reviewAgent, policy, bdrContext, rules, di
         rules
           .map(
             (rule) =>
-              `## ${rule.id} ${rule.title}\nsource: ${rule.source}\nscore: ${rule.score}\nseverity: ${rule.severity}\nweight: ${rule.weight}\nhardBlock: ${rule.hardBlock}\npaths:\n${(rule.paths || []).map((item) => `- ${item}`).join('\n')}\ncapabilities:\n${(rule.capabilities || []).map((item) => `- ${item}`).join('\n')}\nscope: ${rule.scope || ''}\n${rule.body}`,
+              `## ${rule.id} ${rule.title}\nsource: ${rule.source}\nscore: ${rule.score}\nseverity: ${rule.severity}\nweight: ${rule.weight}\nhardBlock: ${rule.hardBlock}\npaths:\n${(rule.paths || []).map((item) => `- ${item}`).join('\n')}\ncapabilities:\n${(rule.capabilities || []).map((item) => `- ${item}`).join('\n')}\nscope: ${rule.scope || ''}\nsignalPaths:\n${(rule.signalPaths || []).map((item) => `- ${item}`).join('\n')}\nsignalContent:\n${(rule.signalContent || []).map((item) => `- ${item}`).join('\n')}\nevidencePatterns:\n${(rule.evidencePatterns || []).map((item) => `- ${item}`).join('\n')}\nallowUnknownExpansion: ${Boolean(rule.allowUnknownExpansion)}\n${rule.body}`,
           )
           .join('\n\n'),
         renderDeterministicContext({ routes, deterministicFindings, ruleRouting }),

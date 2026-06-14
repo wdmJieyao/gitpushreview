@@ -765,9 +765,16 @@ paths:
 capabilities:
   - language.java
   - frontend.vue
+signalPaths:
+  - backend/**/*Payment*.java
+signalContent:
+  - payment callback
+evidencePatterns:
+  - payment-callback|payment callback|检测到支付回调相关变更
+allowUnknownExpansion: false
 \`\`\`
 
-正文建议固定使用这些小节，AI 会把它们作为审核依据和修复建议来源。可以用 \`gitpushreview explain <file> --json\` 查看某个文件的能力标签、候选规则和过滤原因：
+正文建议固定使用这些小节，AI 会把它们作为审核依据和修复建议来源。可以用 \`gitpushreview explain <file> --json\` 查看某个文件的能力标签、候选规则、signal 命中情况和过滤原因：
 
 - **规则说明**：这条规则要求什么。
 - **检查要点**：审核时应该检查哪些信号。
@@ -782,6 +789,11 @@ capabilities:
 - \`severity\`：严重等级，只建议填写 \`low\`、\`medium\`、\`high\`、\`critical\`。
 - \`hardBlock\`：是否单条命中就强拦截。明显异常、高风险安全问题、资金问题、越权问题建议设置为 \`true\`。
 - \`paths\`：规则适用文件范围。必须尽量精确，不建议使用 \`**/*\` 这种全局兜底。
+- \`capabilities\`：规则适用能力域，例如 \`language.java\`、\`frontend.vue\`、\`persistence.sql\`、\`middleware.mq.kafka\`。静态层会根据文件路径、内容信号和项目画像生成能力标签。
+- \`signalPaths\`：补充路由路径信号，只用于证明 unknown 文件可能适用该规则，不替代普通文件的 \`paths + capabilities\` 匹配。
+- \`signalContent\`：补充路由内容信号，可以填写正则片段，例如 \`KafkaTemplate\`、\`payment callback\`、\`tenantId\`。
+- \`evidencePatterns\`：静态证据提取模式，格式为 \`证据ID|正则|中文证据说明\`。命中后只作为 AI 复审线索，\`score=0\` 且不直接拦截。
+- \`allowUnknownExpansion\`：当文件无法识别能力时，是否允许通过 \`signalPaths\` 或 \`signalContent\` 把该规则加入 AI 候选集。默认 \`false\`，只建议高价值项目规则或 DIY 规则打开。
 
 ## 计分机制
 

@@ -42,6 +42,29 @@ export function matchesPath(file, patterns = []) {
   return list.some((pattern) => globToRegExp(pattern).test(normalized));
 }
 
+function matchesAnyPath(file, patterns = []) {
+  const list = toArray(patterns);
+  if (!list.length) return false;
+  return matchesPath(file, list);
+}
+
+function safeRegExp(pattern) {
+  try {
+    return new RegExp(String(pattern), 'i');
+  } catch {
+    return null;
+  }
+}
+
+function matchesAnyContent(content, patterns = []) {
+  const list = toArray(patterns);
+  if (!list.length) return false;
+  return list.some((pattern) => {
+    const regex = safeRegExp(pattern);
+    return regex ? regex.test(content || '') : String(content || '').toLowerCase().includes(String(pattern).toLowerCase());
+  });
+}
+
 function normalizeCapability(value) {
   const text = String(value || '').trim();
   const aliases = {
@@ -88,11 +111,29 @@ function capabilityMatches(ruleCapabilities, contextCapabilities) {
     : { ok: false, reason: `capability-mismatch:${wanted.join(',')}` };
 }
 
-export function routeRulesForFiles({ rules = [], routes = [] }) {
+function signalMatches(rule, route, content) {
+  const pathSignals = toArray(rule.signalPaths);
+  const contentSignals = toArray(rule.signalContent);
+  const pathMatched = matchesAnyPath(route.file, pathSignals);
+  const contentMatched = matchesAnyContent(content, contentSignals);
+  const reasons = [];
+  if (pathMatched) reasons.push('signal-path');
+  if (contentMatched) reasons.push('signal-content');
+  return { ok: pathMatched || contentMatched, reason: reasons.join('+') };
+}
+
+function normalReason(rulePaths, capResult, signalResult) {
+  const parts = [rulePaths.length ? 'path' : 'no-path-scope', capResult.reason];
+  if (signalResult.ok) parts.push(signalResult.reason);
+  return parts.join('+');
+}
+
+export function routeRulesForFiles({ rules = [], routes = [], fileContents = {} }) {
   const routeList = Array.isArray(routes) ? routes : [routes].filter(Boolean);
   const decisions = [];
   const selected = [];
   const seen = new Set();
+  const matchesByRule = {};
 
   for (const rule of rules) {
     const rulePaths = toArray(rule.paths);
@@ -101,29 +142,51 @@ export function routeRulesForFiles({ rules = [], routes = [] }) {
     const routeSkips = [];
 
     for (const route of routeList) {
+      const content = fileContents[route.file] || '';
       const pathOk = matchesPath(route.file, rulePaths);
       const capResult = capabilityMatches(ruleCapabilities, route.capabilities || []);
-      const unknownBlocked = route.unknownLimited && !isCommonRule(rule);
-      if (pathOk && capResult.ok && !unknownBlocked) {
-        routeMatches.push({ file: route.file, reason: [rulePaths.length ? 'path' : 'no-path-scope', capResult.reason].join('+') });
+      const signalResult = signalMatches(rule, route, content);
+      const normalMatch = pathOk && capResult.ok;
+      const unknownSignalExpansion = route.unknownLimited
+        && !isCommonRule(rule)
+        && Boolean(rule.allowUnknownExpansion)
+        && signalResult.ok;
+
+      const unknownBlocked = route.unknownLimited && !isCommonRule(rule) && !unknownSignalExpansion;
+
+      if ((normalMatch && !unknownBlocked) || unknownSignalExpansion) {
+        routeMatches.push({
+          file: route.file,
+          reason: unknownSignalExpansion ? signalResult.reason : normalReason(rulePaths, capResult, signalResult),
+          expanded: unknownSignalExpansion,
+        });
       } else {
         const reasons = [];
         if (!pathOk) reasons.push('path-mismatch');
         if (!capResult.ok) reasons.push(capResult.reason);
-        if (unknownBlocked) reasons.push('unknown-limited');
+        if (route.unknownLimited && !isCommonRule(rule)) reasons.push('unknown-limited');
+        if (!signalResult.ok && (toArray(rule.signalPaths).length || toArray(rule.signalContent).length)) reasons.push('signal-mismatch');
+        if (signalResult.ok && !route.unknownLimited && !normalMatch) reasons.push('signal-is-evidence-only');
+        if (signalResult.ok && route.unknownLimited && !rule.allowUnknownExpansion && !isCommonRule(rule)) reasons.push('unknown-expansion-disabled');
         routeSkips.push({ file: route.file, reason: reasons.join('+') || 'not-applicable' });
       }
     }
 
     const matched = routeMatches.length > 0;
+    if (matched) matchesByRule[rule.id] = routeMatches;
     decisions.push({
       ruleId: rule.id,
       source: rule.source,
       matched,
       matchReason: matched ? routeMatches.map((item) => `${item.file}:${item.reason}`).join('; ') : '',
       skipReason: matched ? '' : routeSkips.map((item) => `${item.file}:${item.reason}`).join('; '),
+      matches: routeMatches,
+      skips: routeSkips,
       capabilities: ruleCapabilities,
       paths: rulePaths,
+      signalPaths: toArray(rule.signalPaths),
+      signalContent: toArray(rule.signalContent),
+      allowUnknownExpansion: Boolean(rule.allowUnknownExpansion),
     });
     if (matched && !seen.has(rule.id)) {
       selected.push(rule);
@@ -137,6 +200,7 @@ export function routeRulesForFiles({ rules = [], routes = [] }) {
       totalRules: rules.length,
       selectedRules: selected.length,
       excludedRules: Math.max(0, rules.length - selected.length),
+      matchesByRule,
       decisions,
     },
   };

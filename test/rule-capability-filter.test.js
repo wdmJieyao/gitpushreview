@@ -60,3 +60,38 @@ test('routeRulesForFiles blocks unknown-limited files from broad legacy rules', 
   assert.ok(ids.includes('COMMON-CAPABILITY'));
   assert.match(routed.diagnostics.decisions.find((item) => item.ruleId === 'BROAD-LEGACY').skipReason, /unknown-limited/);
 });
+
+
+test('routeRulesForFiles expands unknown-limited only when rule signal matches and allows expansion', () => {
+  const unknown = buildCapabilityContext({ file: 'docs/payment.rulebook', content: 'payment callback must be idempotent' });
+  const routed = routeRulesForFiles({
+    rules: [
+      { id: 'PAYMENT-NO-SIGNAL', paths: ['**/*'], signalContent: ['payment'], allowUnknownExpansion: false },
+      { id: 'PAYMENT-SIGNAL', paths: ['**/*'], signalContent: ['payment callback'], allowUnknownExpansion: true },
+      { id: 'ORDER-SIGNAL', paths: ['**/*'], signalContent: ['order callback'], allowUnknownExpansion: true },
+    ],
+    routes: [unknown],
+    fileContents: { 'docs/payment.rulebook': 'payment callback must be idempotent' },
+  });
+  const ids = routed.rules.map((rule) => rule.id);
+
+  assert.equal(ids.includes('PAYMENT-NO-SIGNAL'), false);
+  assert.ok(ids.includes('PAYMENT-SIGNAL'));
+  assert.equal(ids.includes('ORDER-SIGNAL'), false);
+  assert.match(routed.diagnostics.decisions.find((item) => item.ruleId === 'PAYMENT-SIGNAL').matchReason, /signal-content/);
+});
+
+
+test('routeRulesForFiles keeps signals as evidence-only for recognized non-matching files', () => {
+  const java = buildCapabilityContext({ file: 'src/main/java/UserService.java', content: 'payment callback must be idempotent' });
+  const routed = routeRulesForFiles({
+    rules: [
+      { id: 'PAYMENT-SQL', paths: ['**/*.sql'], capabilities: ['persistence.sql'], signalContent: ['payment callback'], allowUnknownExpansion: true },
+    ],
+    routes: [java],
+    fileContents: { 'src/main/java/UserService.java': 'payment callback must be idempotent' },
+  });
+
+  assert.deepEqual(routed.rules.map((rule) => rule.id), []);
+  assert.match(routed.diagnostics.decisions[0].skipReason, /signal-is-evidence-only/);
+});

@@ -5,6 +5,7 @@ import { buildFileRouteContext } from './routes/file-route-context.js';
 import { getGitRoot, getStagedSnapshot } from './git.js';
 import { parseRuleIndex, loadMarkdownRules } from './rules/index.js';
 import { routeRulesForFiles } from './rules/router.js';
+import { runRuleEvidence } from './evidence/rule-evidence.js';
 
 const HELP = `gitpushreview explain
 
@@ -26,13 +27,26 @@ function loadRulesForExplain(root) {
     .flatMap((source) => loadMarkdownRules({ workspaceRoot, source }));
 }
 
-function buildRuleRouting(root, routes) {
+function buildRuleRouting(root, routes, fileContents = {}) {
   const rules = loadRulesForExplain(root);
-  return routeRulesForFiles({ rules, routes });
+  return routeRulesForFiles({ rules, routes, fileContents });
+}
+
+function buildRuleCandidates(rules) {
+  return rules.map((rule) => ({
+    id: rule.id,
+    source: rule.source,
+    capabilities: rule.capabilities || [],
+    paths: rule.paths || [],
+    signalPaths: rule.signalPaths || [],
+    signalContent: rule.signalContent || [],
+    evidencePatterns: rule.evidencePatterns || [],
+    allowUnknownExpansion: Boolean(rule.allowUnknownExpansion),
+  }));
 }
 
 function renderFinding(finding) {
-  const blocking = finding.blocking === 'hard' ? '强拦截' : '软拦截';
+  const blocking = finding.blocking === 'hard' ? '强拦截' : finding.blocking === 'soft' ? '软拦截' : '证据线索';
   return [
     `  - [${blocking}] ${finding.ruleId} ${finding.title}`,
     finding.file ? `    位置：${finding.file}${finding.line ? `:${finding.line}` : ''}` : '',
@@ -94,11 +108,12 @@ export function explainFile({ cwd, file, json = false }) {
   const content = fs.readFileSync(abs, 'utf8');
   const route = buildFileRouteContext({ file, content });
   const result = runDeterministicGates({ files: [route.file], fileContents: { [route.file]: content } });
-  const routedRules = buildRuleRouting(root, [route]);
+  const routedRules = buildRuleRouting(root, [route], { [route.file]: content });
+  const ruleEvidence = runRuleEvidence({ rules: routedRules.rules, routes: [route], fileContents: { [route.file]: content }, ruleRouting: routedRules.diagnostics });
   const payload = {
     routes: route,
-    findings: result.findings,
-    ruleCandidates: routedRules.rules.map((rule) => ({ id: rule.id, source: rule.source, capabilities: rule.capabilities || [], paths: rule.paths || [] })),
+    findings: [...result.findings, ...ruleEvidence],
+    ruleCandidates: buildRuleCandidates(routedRules.rules),
     ruleRouting: routedRules.diagnostics,
   };
   return { exitCode: 0, output: json ? `${JSON.stringify(payload, null, 2)}\n` : renderExplain(payload) };
@@ -107,11 +122,12 @@ export function explainFile({ cwd, file, json = false }) {
 export function explainStaged({ cwd, json = false }) {
   const snapshot = getStagedSnapshot(cwd);
   const result = runDeterministicGates({ files: snapshot.files, diff: snapshot.diff, fileContents: snapshot.fileContents });
-  const routedRules = buildRuleRouting(snapshot.root, result.routes);
+  const routedRules = buildRuleRouting(snapshot.root, result.routes, snapshot.fileContents);
+  const ruleEvidence = runRuleEvidence({ rules: routedRules.rules, routes: result.routes, fileContents: snapshot.fileContents, ruleRouting: routedRules.diagnostics });
   const payload = {
     routes: result.routes,
-    findings: result.findings,
-    ruleCandidates: routedRules.rules.map((rule) => ({ id: rule.id, source: rule.source, capabilities: rule.capabilities || [], paths: rule.paths || [] })),
+    findings: [...result.findings, ...ruleEvidence],
+    ruleCandidates: buildRuleCandidates(routedRules.rules),
     ruleRouting: routedRules.diagnostics,
   };
   return { exitCode: 0, output: json ? `${JSON.stringify(payload, null, 2)}\n` : renderExplain(payload) };
