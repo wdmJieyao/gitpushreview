@@ -57,6 +57,7 @@ const expectedRuleIds = {
   'docs/default/mysql.md': [
     'DEFAULT-MYSQL-SEC-001',
     'DEFAULT-MYSQL-SEC-002',
+    'DEFAULT-MYSQL-SEC-003',
     'DEFAULT-MYSQL-DML-001',
     'DEFAULT-MYSQL-DML-002',
     'DEFAULT-MYSQL-IDX-001',
@@ -68,7 +69,15 @@ const expectedRuleIds = {
     'DEFAULT-MYSQL-TXN-002',
     'DEFAULT-MYSQL-LOCK-001',
     'DEFAULT-MYSQL-DDL-001',
+    'DEFAULT-MYSQL-DDL-002',
+    'DEFAULT-MYSQL-DDL-003',
     'DEFAULT-MYSQL-TYPE-001',
+    'DEFAULT-MYSQL-TYPE-002',
+    'DEFAULT-MYSQL-CONS-001',
+    'DEFAULT-MYSQL-QUERY-001',
+    'DEFAULT-MYSQL-QUERY-002',
+    'DEFAULT-MYSQL-NULL-001',
+    'DEFAULT-MYSQL-CHARSET-001',
   ],
   'docs/default/oracle.md': [
     'DEFAULT-ORACLE-SEC-001',
@@ -82,8 +91,15 @@ const expectedRuleIds = {
     'DEFAULT-ORACLE-LOCK-001',
     'DEFAULT-ORACLE-DDL-001',
     'DEFAULT-ORACLE-DDL-002',
+    'DEFAULT-ORACLE-DDL-003',
     'DEFAULT-ORACLE-TYPE-001',
+    'DEFAULT-ORACLE-TYPE-002',
     'DEFAULT-ORACLE-COMPAT-001',
+    'DEFAULT-ORACLE-CONS-001',
+    'DEFAULT-ORACLE-SEQ-001',
+    'DEFAULT-ORACLE-TXN-003',
+    'DEFAULT-ORACLE-TRG-001',
+    'DEFAULT-ORACLE-PRIV-001',
   ],
   'docs/default/drools.md': [
     'DEFAULT-DROOLS-DRL-001',
@@ -176,7 +192,7 @@ test('every default rule is Chinese, structured, scoped, and parseable', () => {
     }
   }
 
-  assert.equal(allRuleIds.length, 84);
+  assert.equal(allRuleIds.length, 100);
   assert.equal(new Set(allRuleIds).size, allRuleIds.length, 'default rule ids should be unique');
 });
 
@@ -209,5 +225,5 @@ test('initialized workspace can load all default rules end-to-end', async () => 
   assert.ok(source, 'initialized workspace should include Default Rules source');
 
   const rules = loadMarkdownRules({ workspaceRoot, source });
-  assert.equal(rules.length, 84);
+  assert.equal(rules.length, 100);
 });

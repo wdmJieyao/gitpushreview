@@ -65,6 +65,30 @@ const demoSamples = [
     snippet: 'drop table legacy_user;',
     expectedRules: ['DEFAULT-MYSQL-DDL-001', 'DEFAULT-ORACLE-DDL-002', 'DEFAULT-WORKFLOW-005'],
   },
+  {
+    name: 'MySQL migration tightens constraints during rollout',
+    file: 'migrations/V20260615__add_order_unique_key.sql',
+    snippet: 'alter table orders add unique key uk_order_no(order_no), modify buyer_name varchar(20) not null;',
+    expectedRules: ['DEFAULT-MYSQL-DDL-003', 'DEFAULT-MYSQL-CONS-001', 'DEFAULT-MYSQL-NULL-001'],
+  },
+  {
+    name: 'MySQL query uses non-deterministic group by and index-breaking function',
+    file: 'src/main/resources/mapper/OrderMapper.xml',
+    snippet: 'select user_id, status from orders where date(created_at) = #{day} group by user_id;',
+    expectedRules: ['DEFAULT-MYSQL-QUERY-001', 'DEFAULT-MYSQL-QUERY-002'],
+  },
+  {
+    name: 'Oracle migration adds hot-table constraint and sequence logic',
+    file: 'db/oracle/migrations/V20260616__order_constraints.sql',
+    snippet: 'alter table orders add constraint uk_order_no unique(order_no); select max(id)+1 into v_id from orders;',
+    expectedRules: ['DEFAULT-ORACLE-DDL-003', 'DEFAULT-ORACLE-CONS-001', 'DEFAULT-ORACLE-SEQ-001'],
+  },
+  {
+    name: 'Oracle package uses autonomous transaction and broad grants',
+    file: 'db/oracle/packages/audit_admin.pkb',
+    snippet: 'pragma autonomous_transaction; grant select any table to app_user;',
+    expectedRules: ['DEFAULT-ORACLE-TXN-003', 'DEFAULT-ORACLE-PRIV-001'],
+  },
 ];
 
 function allDefaultRules() {
