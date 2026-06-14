@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveApiKey } from './model/client.js';
 
 export function runDoctor({ cwd, env }) {
   const workspace = path.join(cwd, '.gitpushreview');
@@ -9,11 +10,15 @@ export function runDoctor({ cwd, env }) {
     model = JSON.parse(fs.readFileSync(modelPath, 'utf8'));
   }
 
+  const apiKey = model ? resolveApiKey({ config: model, env }) : '';
+  const apiKeyDetail = model?.apiKey
+    ? 'reviewmodel.json apiKey'
+    : model?.apiKeyEnv || 'missing model config';
   const checks = [
     { name: 'node', ok: Number(process.versions.node.split('.')[0]) >= 18, detail: process.versions.node },
     { name: 'workspace', ok: fs.existsSync(workspace), detail: workspace },
     { name: 'modelConfig', ok: fs.existsSync(modelPath), detail: modelPath },
-    { name: 'apiKey', ok: model?.apiKeyEnv ? Boolean(env[model.apiKeyEnv]) : false, detail: model?.apiKeyEnv || 'missing model config' },
+    { name: 'apiKey', ok: Boolean(apiKey), detail: apiKeyDetail },
     { name: 'bdr', ok: fs.existsSync(path.join(workspace, 'vendor', 'bdr')), detail: path.join(workspace, 'vendor', 'bdr') },
   ];
 

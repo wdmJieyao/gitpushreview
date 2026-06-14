@@ -76,6 +76,7 @@ hardBlockOnViolation: true
 export const REVIEW_MODEL = {
   provider: 'openai-compatible',
   baseUrl: 'https://api.example.com/v1',
+  apiKey: '',
   apiKeyEnv: 'GITPUSHREVIEW_API_KEY',
   model: 'gpt-4.1',
   timeoutMs: 60000,

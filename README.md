@@ -105,17 +105,28 @@ Edit `.gitpushreview/config/reviewmodel.json`:
 {
   "provider": "openai-compatible",
   "baseUrl": "https://api.example.com/v1",
+  "apiKey": "sk-...",
   "apiKeyEnv": "GITPUSHREVIEW_API_KEY",
   "model": "gpt-4.1",
   "timeoutMs": 60000
 }
 ```
 
-Set the API key in your environment:
+`apiKey` is read directly from the config file and takes priority. Keep `apiKeyEnv` if your team prefers environment variables instead of storing keys in the project workspace.
+
+Temporary Windows environment variable:
 
 ```bash
 set GITPUSHREVIEW_API_KEY=...
 ```
+
+Permanent Windows user environment variable:
+
+```bash
+setx GITPUSHREVIEW_API_KEY "..."
+```
+
+Open a new terminal after `setx`; existing terminals do not receive the new value.
 
 On macOS/Linux:
 
@@ -153,7 +164,7 @@ GitPushReview does not provide a convenience bypass for hard blocks.
 gitpushreview doctor
 ```
 
-Checks Node version, workspace files, model config, API key environment variable, and BDR directory.
+Checks Node version, workspace files, model config, API key config/environment, and BDR directory.
 
 ## Development
 

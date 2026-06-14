@@ -36,7 +36,7 @@ export async function runReview({ cwd, diff, files, modelInvoker, env }) {
   const messages = buildReviewMessages({ reviewAgent, policy: policy.raw, bdrContext, rules: markdownRules, diff, files });
   const invoke = modelInvoker || ((input) => callReviewModel({
     config: modelConfig,
-    apiKey: env[modelConfig.apiKeyEnv],
+    env,
     messages: input.messages,
   }));
   const text = await invoke({ messages, modelConfig });

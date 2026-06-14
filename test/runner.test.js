@@ -20,3 +20,26 @@ test('runReview returns decision from fake model findings', async () => {
   assert.equal(result.decision.status, 'HARD_BLOCK');
   assert.equal(result.findings.length, 1);
 });
+
+test('runReview prefers apiKey from reviewmodel config over environment variable', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-runner-config-key-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+  const modelPath = path.join(dir, '.gitpushreview', 'config', 'reviewmodel.json');
+  const model = JSON.parse(fs.readFileSync(modelPath, 'utf8'));
+  fs.writeFileSync(modelPath, `${JSON.stringify({ ...model, apiKey: 'config-key' }, null, 2)}\n`, 'utf8');
+
+  let observedModelConfig = null;
+  const result = await runReview({
+    cwd: dir,
+    diff: 'diff --git a/frontend/src/pages/Login.vue b/frontend/src/pages/Login.vue\n+<div v-html="notice"></div>\n',
+    files: ['frontend/src/pages/Login.vue'],
+    modelInvoker: async ({ modelConfig }) => {
+      observedModelConfig = modelConfig;
+      return '{"findings":[]}';
+    },
+    env: { GITPUSHREVIEW_API_KEY: 'env-key' },
+  });
+
+  assert.equal(observedModelConfig.apiKey, 'config-key');
+  assert.equal(result.decision.status, 'PASS');
+});

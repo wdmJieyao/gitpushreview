@@ -1,11 +1,16 @@
-export async function callReviewModel({ config, apiKey, messages, fetchImpl = fetch }) {
-  if (!apiKey) throw new Error(`Missing API key for ${config.apiKeyEnv}`);
+export function resolveApiKey({ config, env = process.env }) {
+  return config.apiKey || (config.apiKeyEnv ? env[config.apiKeyEnv] : '');
+}
+
+export async function callReviewModel({ config, apiKey, env = process.env, messages, fetchImpl = fetch }) {
+  const resolvedApiKey = apiKey || resolveApiKey({ config, env });
+  if (!resolvedApiKey) throw new Error(`Missing API key. Set apiKey in reviewmodel.json or configure ${config.apiKeyEnv}`);
   const url = `${config.baseUrl.replace(/\/$/, '')}/chat/completions`;
   const response = await fetchImpl(url, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${apiKey}`,
+      authorization: `Bearer ${resolvedApiKey}`,
     },
     body: JSON.stringify({
       model: config.model,
