@@ -18,6 +18,21 @@ function parsePolicy(markdown) {
   return { softBlockScore: Number(soft), hardBlockScore: Number(hard), raw: markdown };
 }
 
+function normalizeFindings(findings, rules) {
+  const rulesById = new Map(rules.map((rule) => [rule.id, rule]));
+  return findings.map((finding) => {
+    const rule = rulesById.get(finding.ruleId);
+    const blocking = rule && rule.hardBlock === false && finding.blocking === 'hard'
+      ? 'soft'
+      : finding.blocking;
+    return {
+      ...finding,
+      blocking,
+      weightedScore: finding.weightedScore ?? Number(finding.score || 0),
+    };
+  });
+}
+
 export async function runReview({ cwd, diff, files, modelInvoker, env }) {
   const workspaceRoot = path.join(cwd, '.gitpushreview');
   const reviewAgent = fs.readFileSync(path.join(workspaceRoot, 'agent', 'review-agent.md'), 'utf8');
@@ -41,9 +56,6 @@ export async function runReview({ cwd, diff, files, modelInvoker, env }) {
   }));
   const text = await invoke({ messages, modelConfig });
   const parsed = parseReviewJson(text);
-  const findings = parsed.findings.map((finding) => ({
-    ...finding,
-    weightedScore: finding.weightedScore ?? Number(finding.score || 0),
-  }));
+  const findings = normalizeFindings(parsed.findings, markdownRules);
   return { findings, decision: decideReview(findings, policy) };
 }

@@ -43,3 +43,19 @@ test('runReview prefers apiKey from reviewmodel config over environment variable
   assert.equal(observedModelConfig.apiKey, 'config-key');
   assert.equal(result.decision.status, 'PASS');
 });
+
+test('runReview downgrades hard model findings when the matched rule is soft-only', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-runner-soft-only-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+  const result = await runReview({
+    cwd: dir,
+    diff: 'diff --git a/src/main/resources/application.yml b/src/main/resources/application.yml\n+management.endpoints.web.exposure.include: "*"\n',
+    files: ['src/main/resources/application.yml'],
+    modelInvoker: async () =>
+      '{"findings":[{"source":"default","ruleId":"DEFAULT-JAVA-SPR-005","score":85,"weightedScore":85,"blocking":"hard","title":"Actuator 暴露","severity":"critical"}]}',
+    env: { GITPUSHREVIEW_API_KEY: 'test' },
+  });
+
+  assert.equal(result.findings[0].blocking, 'soft');
+  assert.equal(result.decision.status, 'SOFT_BLOCK');
+});

@@ -25,6 +25,123 @@ const demoSamples = [
     expectedRules: ['DEFAULT-MYSQL-SEC-001', 'DEFAULT-MYSQL-SEC-002'],
   },
   {
+    name: 'Spring Boot exposes actuator and disables csrf',
+    file: 'src/main/resources/application.yml',
+    snippet: `
+      management.endpoints.web.exposure.include: "*"
+      security.csrf.enabled: false
+    `,
+    expectedRules: ['DEFAULT-JAVA-SPR-005', 'DEFAULT-JAVA-SPR-011'],
+  },
+  {
+    name: 'Spring service calls external url inside transaction',
+    file: 'src/main/java/com/acme/order/OrderService.java',
+    snippet: `
+      @Transactional
+      public void notify(String callbackUrl) {
+        restTemplate.postForObject(callbackUrl, body, Void.class);
+        mapper.updateStatus(id, "SENT");
+      }
+    `,
+    expectedRules: ['DEFAULT-JAVA-SPR-008', 'DEFAULT-JAVA-SPR-012'],
+  },
+  {
+    name: 'MyBatis mapper uses raw substitution and large foreach',
+    file: 'src/main/resources/mapper/UserMapper.xml',
+    snippet: `
+      select * from user order by \${column}
+      <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    `,
+    expectedRules: ['DEFAULT-JAVA-MYBATIS-001', 'DEFAULT-JAVA-MYBATIS-002'],
+  },
+  {
+    name: 'Java utility blindly copies request fields and uses unbounded cache',
+    file: 'src/main/java/com/acme/user/UserConvertor.java',
+    snippet: `
+      BeanUtils.copyProperties(request, entity);
+      CacheBuilder.newBuilder().build();
+    `,
+    expectedRules: ['DEFAULT-JAVA-LIB-001', 'DEFAULT-JAVA-LIB-003'],
+  },
+  {
+    name: 'Spring configuration properties miss validation for risky defaults',
+    file: 'src/main/java/com/acme/config/PaymentProperties.java',
+    snippet: `
+      @ConfigurationProperties(prefix = "payment")
+      public class PaymentProperties {
+        private String callbackUrl;
+        private Integer timeoutMs;
+      }
+    `,
+    expectedRules: ['DEFAULT-JAVA-SPR-009'],
+  },
+  {
+    name: 'MyBatis Spring configuration binds mapper and transaction manager to different datasources',
+    file: 'src/main/java/com/acme/config/MyBatisConfig.java',
+    snippet: `
+      sqlSessionFactory.setDataSource(orderDataSource);
+      return new DataSourceTransactionManager(userDataSource);
+    `,
+    expectedRules: ['DEFAULT-JAVA-MYBATIS-005'],
+  },
+  {
+    name: 'Spring transaction catches checked exception without rollback policy',
+    file: 'src/main/java/com/acme/order/OrderService.java',
+    snippet: `
+      @Transactional
+      public void importOrder() throws IOException {
+        try {
+          orderMapper.insert(order);
+        } catch (IOException ex) {
+          log.warn("ignore", ex);
+        }
+      }
+    `,
+    expectedRules: ['DEFAULT-JAVA-SPR-004'],
+  },
+  {
+    name: 'ThreadLocal context is set without finally cleanup',
+    file: 'src/main/java/com/acme/security/TenantContext.java',
+    snippet: `
+      private static final ThreadLocal<String> TENANT = new ThreadLocal<>();
+      public static void bind(String tenantId) {
+        TENANT.set(tenantId);
+      }
+    `,
+    expectedRules: ['DEFAULT-JAVA-LIB-005'],
+  },
+  {
+    name: 'BigDecimal equality and division omit business-safe comparison and rounding',
+    file: 'src/main/java/com/acme/billing/BillingService.java',
+    snippet: `
+      if (amount.equals(BigDecimal.ZERO)) {
+        return total.divide(count);
+      }
+    `,
+    expectedRules: ['DEFAULT-JAVA-P3C-006', 'DEFAULT-JAVA-P3C-007'],
+  },
+  {
+    name: 'Java code keeps using deprecated and internal APIs',
+    file: 'src/main/java/com/acme/legacy/LegacyAdapter.java',
+    snippet: `
+      @SuppressWarnings("deprecation")
+      public void call() {
+        sun.misc.Unsafe unsafe = getUnsafe();
+        legacyDeprecatedClient.execute();
+      }
+    `,
+    expectedRules: ['DEFAULT-JAVA-P3C-008'],
+  },
+  {
+    name: 'JSON parser enables dangerous polymorphic typing and has no parser limits',
+    file: 'src/main/java/com/acme/api/JsonConfig.java',
+    snippet: `
+      objectMapper.enableDefaultTyping();
+      objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    `,
+    expectedRules: ['DEFAULT-JAVA-LIB-002', 'DEFAULT-JAVA-LIB-006'],
+  },
+  {
     name: 'Vue component renders API HTML directly',
     file: 'src/views/Profile.vue',
     snippet: `

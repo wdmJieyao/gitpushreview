@@ -33,13 +33,36 @@ const expectedRuleIds = {
     'DEFAULT-JAVA-SPR-002',
     'DEFAULT-JAVA-SPR-003',
     'DEFAULT-JAVA-SPR-004',
+    'DEFAULT-JAVA-SPR-005',
+    'DEFAULT-JAVA-SPR-006',
+    'DEFAULT-JAVA-SPR-007',
+    'DEFAULT-JAVA-SPR-008',
+    'DEFAULT-JAVA-SPR-009',
+    'DEFAULT-JAVA-SPR-010',
+    'DEFAULT-JAVA-SPR-011',
+    'DEFAULT-JAVA-SPR-012',
+    'DEFAULT-JAVA-MYBATIS-001',
+    'DEFAULT-JAVA-MYBATIS-002',
+    'DEFAULT-JAVA-MYBATIS-003',
+    'DEFAULT-JAVA-MYBATIS-004',
+    'DEFAULT-JAVA-MYBATIS-005',
     'DEFAULT-JAVA-JVM-001',
     'DEFAULT-JAVA-JVM-002',
     'DEFAULT-JAVA-JVM-003',
+    'DEFAULT-JAVA-LIB-001',
+    'DEFAULT-JAVA-LIB-002',
+    'DEFAULT-JAVA-LIB-006',
+    'DEFAULT-JAVA-LIB-003',
+    'DEFAULT-JAVA-LIB-004',
+    'DEFAULT-JAVA-LIB-005',
     'DEFAULT-JAVA-P3C-001',
     'DEFAULT-JAVA-P3C-002',
     'DEFAULT-JAVA-P3C-003',
     'DEFAULT-JAVA-P3C-004',
+    'DEFAULT-JAVA-P3C-005',
+    'DEFAULT-JAVA-P3C-006',
+    'DEFAULT-JAVA-P3C-007',
+    'DEFAULT-JAVA-P3C-008',
     'DEFAULT-JAVA-MAINT-001',
   ],
   'docs/default/vue.md': [
@@ -222,7 +245,7 @@ test('every default rule is Chinese, structured, scoped, and parseable', () => {
     }
   }
 
-  assert.equal(allRuleIds.length, 127);
+  assert.equal(allRuleIds.length, 150);
   assert.equal(new Set(allRuleIds).size, allRuleIds.length, 'default rule ids should be unique');
 });
 
@@ -249,6 +272,35 @@ test('default path scopes include enterprise stack entry points', () => {
   assert.ok(securityRules.some((rule) => rule.paths.includes('**/*.jsx')));
 });
 
+test('java default path scopes cover common Spring and MyBatis project layouts', () => {
+  const javaRules = rulesForDefaultDoc('docs/default/java.md');
+  const rulesById = new Map(javaRules.map((rule) => [rule.id, rule]));
+
+  const mybatisInjection = rulesById.get('DEFAULT-JAVA-MYBATIS-001');
+  assert.ok(mybatisInjection.paths.includes('src/main/resources/**/mapper/**/*.xml'));
+  assert.ok(mybatisInjection.paths.includes('src/main/resources/**/mybatis/**/*.xml'));
+  assert.ok(mybatisInjection.paths.includes('**/*Dao*.xml'));
+  assert.ok(mybatisInjection.paths.includes('**/*DAO*.xml'));
+
+  const actuator = rulesById.get('DEFAULT-JAVA-SPR-005');
+  assert.equal(actuator.hardBlock, false);
+  assert.ok(actuator.score < 90);
+
+  const csrf = rulesById.get('DEFAULT-JAVA-SPR-011');
+  assert.equal(csrf.hardBlock, false);
+
+  const datasourceBinding = rulesById.get('DEFAULT-JAVA-MYBATIS-005');
+  assert.equal(datasourceBinding.hardBlock, false);
+
+  const polymorphic = rulesById.get('DEFAULT-JAVA-LIB-002');
+  assert.equal(polymorphic.hardBlock, true);
+  assert.match(polymorphic.title, /多态|autoType|反序列化/);
+
+  const parserLimits = rulesById.get('DEFAULT-JAVA-LIB-006');
+  assert.equal(parserLimits.hardBlock, false);
+  assert.match(parserLimits.title, /输入大小|深度|未知字段/);
+});
+
 test('initialized workspace can load all default rules end-to-end', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-default-rules-'));
   await initWorkspace({ cwd: dir, force: false, installHook: false });
@@ -258,5 +310,5 @@ test('initialized workspace can load all default rules end-to-end', async () => 
   assert.ok(source, 'initialized workspace should include Default Rules source');
 
   const rules = loadMarkdownRules({ workspaceRoot, source });
-  assert.equal(rules.length, 127);
+  assert.equal(rules.length, 150);
 });

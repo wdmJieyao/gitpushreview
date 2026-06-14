@@ -88,7 +88,32 @@ export const REVIEW_MODEL = {
 const javaPaths = ['**/*.java'];
 const springWebPaths = ['**/*Controller.java', '**/*Resource.java', '**/*Security*.java', '**/*.java'];
 const springServicePaths = ['**/*Service.java', '**/*Repository.java', '**/*Mapper.java', '**/*DAO.java', '**/*Dao.java', '**/*.java'];
-const springConfigPaths = ['**/*.java', 'src/main/resources/**/*.{yml,yaml,properties}', 'pom.xml', 'build.gradle*'];
+const springConfigPaths = [
+  '**/*.java',
+  'src/main/resources/**/*.yml',
+  'src/main/resources/**/*.yaml',
+  'src/main/resources/**/*.properties',
+  'src/main/resources/**/*.xml',
+  'pom.xml',
+  '**/pom.xml',
+  'build.gradle*',
+  '**/build.gradle*',
+  '**/*.gradle',
+  '**/*.gradle.kts',
+];
+const mybatisJavaPaths = [
+  '**/*Mapper.java',
+  '**/*DAO.java',
+  '**/*Dao.java',
+  '**/*Mapper*.xml',
+  '**/*Dao*.xml',
+  '**/*DAO*.xml',
+  'src/main/resources/**/mapper/**/*.xml',
+  'src/main/resources/**/mappers/**/*.xml',
+  'src/main/resources/**/mybatis/**/*.xml',
+  'src/main/resources/**/sqlmap/**/*.xml',
+  '**/*.java',
+];
 const vuePaths = ['**/*.vue', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'];
 const pythonPaths = ['**/*.py', '**/*.pyw'];
 const mysqlPaths = [
@@ -144,7 +169,9 @@ const securityPaths = [
   '**/*.html',
   '**/*.sql',
   '**/*.drl',
-  'src/main/resources/**/*.{yml,yaml,properties}',
+  'src/main/resources/**/*.yml',
+  'src/main/resources/**/*.yaml',
+  'src/main/resources/**/*.properties',
   '**/*.json',
   '**/*.conf',
   '**/*.sh',
@@ -218,13 +245,36 @@ const javaRules = [
   rule('DEFAULT-JAVA-SPR-002', '禁止破坏事务一致性边界', 90, 'critical', true, springServicePaths, '多表、多资源或多步骤写入必须保持清晰事务边界，不得让关键写入半成功。', ['检查 @Transactional 是否被删除、传播级别是否改变、异常是否被吞掉。', '检查资金、库存、订单、权限、规则结果落库等路径是否保持原子性。'], '事务边界破坏会造成资金、库存、状态或审计数据不一致。', ['恢复事务注解或显式事务控制。', '异常应回滚、重新抛出或进入补偿流程。'], 'Spring Transaction 文档；MySQL InnoDB 事务；Oracle COMMIT/ROLLBACK。'),
   rule('DEFAULT-JAVA-SPR-003', '@Transactional 方法避免内部自调用导致事务失效', 60, 'high', false, springServicePaths, 'Spring AOP 代理下，同类内部调用事务方法通常不会触发事务增强。', ['检查 this.method() 调用被 @Transactional 标注的方法。', '检查事务入口是否通过代理、独立 service 或 TransactionTemplate 触发。'], '事务未生效会导致异常后提交、锁范围异常或数据部分更新。', ['把事务方法移到独立 Bean，或通过代理入口调用。', '必要时使用 TransactionTemplate 表达边界。'], 'Spring AOP；Spring Transaction rollback rules。'),
   rule('DEFAULT-JAVA-SPR-004', 'checked exception 与事务回滚策略必须明确', 60, 'high', false, springServicePaths, 'Spring 默认对 unchecked exception 回滚；checked exception 需要明确 rollbackFor 或显式处理。', ['检查事务方法是否捕获或抛出 checked exception。', '检查 rollbackFor/noRollbackFor 是否和业务语义一致。'], '异常类型与回滚策略不匹配会导致错误提交或过度回滚。', ['为 checked exception 配置 rollbackFor。', '在方法契约中说明哪些异常会提交、回滚或补偿。'], 'Spring Transaction rollback rules；阿里巴巴 Java 开发手册异常规约。'),
+  rule('DEFAULT-JAVA-SPR-005', 'Spring Boot Actuator 和管理端点不得默认暴露敏感能力', 85, 'critical', false, springConfigPaths, '生产配置不得无鉴权暴露 env、beans、heapdump、threaddump、logfile、shutdown、prometheus 等敏感或高成本端点。', ['检查 management.endpoints.web.exposure.include 是否使用 * 或包含敏感端点。', '检查 actuator、swagger、druid、h2-console、admin 页面是否有鉴权、网络隔离和脱敏。'], '管理端点暴露可能泄露配置、凭据、内存信息和运行时结构，甚至触发拒绝服务或远程操作。', ['只暴露必要健康检查和指标端点。', '为管理端点增加鉴权、内网访问控制、脱敏和审计。'], 'Spring Boot Actuator Endpoints；Spring Security；OWASP Security Misconfiguration。'),
+  rule('DEFAULT-JAVA-SPR-006', 'Controller 不得直接返回数据库实体或内部异常细节', 70, 'high', false, springWebPaths, 'Web API 应返回受控 DTO 和统一错误结构，不得把 JPA/MyBatis 实体、内部字段、堆栈、SQL 或异常类名直接暴露给调用方。', ['检查 Controller 返回值是否直接使用 Entity、DO、PO 或包含 password、secret、deleted、tenant 等内部字段。', '检查异常处理是否把 stack trace、SQL、类名和内部路径返回给前端。'], '内部模型泄露会造成敏感字段暴露、接口兼容性脆弱和攻击面扩展。', ['使用 DTO/VO 并显式选择输出字段。', '统一异常处理，只返回业务错误码、可理解消息和 traceId。'], 'Spring MVC Exception Handling；OWASP Error Handling；阿里巴巴分层规约。'),
+  rule('DEFAULT-JAVA-SPR-007', '定时任务、监听器和异步入口必须防重入并具备幂等保护', 75, 'high', false, springServicePaths, 'Scheduled、Async、Listener、Consumer、Job 等非 HTTP 入口也必须有并发控制、幂等键、失败重试和补偿策略。', ['检查 @Scheduled、@Async、消息监听器和批处理任务是否可能并发重入。', '检查重复投递、任务超时、节点多实例和失败重试是否会重复写入。'], '后台入口缺少幂等和防重入会造成重复扣款、重复发货、重复发消息或数据状态错乱。', ['使用分布式锁、唯一约束、幂等表或任务状态机。', '为重复投递、并发执行和失败重试补充测试。'], 'Spring Scheduling；Spring Integration；消息幂等实践。'),
+  rule('DEFAULT-JAVA-SPR-008', '事务内不得执行不可回滚的外部副作用', 80, 'critical', false, springServicePaths, '数据库事务内直接发送 MQ、HTTP 回调、邮件、文件删除、扣费网关调用等不可回滚副作用时，必须有 outbox、afterCommit 或补偿策略。', ['检查 @Transactional 方法内是否调用外部系统、消息发送或文件副作用。', '检查事务回滚后外部副作用是否仍会生效。'], '事务回滚无法撤销外部副作用，会造成数据库状态与消息、支付、库存、文件或第三方系统不一致。', ['使用事务消息、outbox 表、TransactionSynchronization afterCommit 或可靠补偿任务。', '把外部副作用移出主事务并保持幂等。'], 'Spring TransactionSynchronization；Transactional Outbox；分布式事务实践。'),
+  rule('DEFAULT-JAVA-SPR-009', '配置绑定必须校验必填项、默认值和危险开关', 65, 'high', false, springConfigPaths, '新增 @ConfigurationProperties、@Value 或环境配置时，应声明必填、默认值、范围和危险开关保护。', ['检查配置项缺失时是否静默使用危险默认值。', '检查超时、线程池、开关、URL、密钥、文件路径和权限相关配置是否有校验。'], '配置缺失或默认值不当会导致启动后行为漂移、无限等待、权限放开或生产事故。', ['使用 @ConfigurationProperties 配合 validation。', '危险开关必须默认关闭，并在启动时校验范围和依赖。'], 'Spring Boot Externalized Configuration；Bean Validation；Twelve-Factor Config。'),
+  rule('DEFAULT-JAVA-SPR-010', '缓存使用必须声明 key 边界、TTL 和数据隔离维度', 70, 'high', false, springServicePaths, 'Spring Cache、Redis、Caffeine、Guava Cache 等缓存不得缺少租户/用户/权限维度、TTL、失效策略和穿透保护。', ['检查 @Cacheable key 是否包含 tenantId、userId、权限范围或业务隔离字段。', '检查缓存是否有 TTL、容量上限、空值策略和变更失效路径。'], '缓存 key 维度不完整会造成跨租户数据泄露；缺少 TTL 和容量控制会造成脏数据或内存膨胀。', ['把隔离维度纳入 key。', '设置 TTL、容量、空值保护和写入后失效策略。'], 'Spring Cache；Redis Best Practices；Guava Cache。'),
+  rule('DEFAULT-JAVA-SPR-011', '浏览器会话类应用不得全局关闭 CSRF 防护', 85, 'critical', false, springConfigPaths, '使用 Cookie、Session 或浏览器自动携带凭据的应用，不得无差别关闭 Spring Security CSRF 防护。', ['检查 http.csrf().disable、csrf(AbstractHttpConfigurer::disable) 和全局忽略路径。', '检查是否仅对纯 token API、非浏览器客户端或明确无状态接口做有限豁免。'], 'CSRF 关闭会让攻击者借助用户浏览器发起转账、修改资料、审批、删除等跨站请求。', ['保留默认 CSRF 防护。', '确需豁免时限定路径、客户端类型和认证方式，并补充说明。'], 'Spring Security CSRF；Spring Boot Actuator Security；OWASP CSRF。'),
+  rule('DEFAULT-JAVA-SPR-012', '外部 URL 和回调地址必须使用白名单防止 SSRF', 95, 'critical', true, springWebPaths, 'RestTemplate、WebClient、HttpClient、OkHttp、URLConnection 等访问外部地址时，不得直接使用用户可控 URL、Host 或回调地址。', ['检查请求参数、数据库字段、配置下发和消息内容是否直接驱动外部 URL。', '检查是否限制协议、域名、IP 网段、端口和重定向。'], 'SSRF 可访问内网服务、云元数据、管理端点或绕过边界防护读取敏感数据。', ['使用业务枚举或配置白名单映射目标地址。', '拒绝内网、环回、链路本地、元数据地址和危险协议，并限制重定向。'], 'OWASP SSRF Prevention Cheat Sheet；Spring WebClient；Apache HttpClient。'),
+  rule('DEFAULT-JAVA-MYBATIS-001', 'MyBatis ${} 只能用于白名单标识符', 90, 'critical', true, mybatisJavaPaths, 'MyBatis `${}` 是字符串替换，不得承载用户输入；只有表名、列名、排序字段等无法绑定的标识符可经白名单后使用。', ['检查 XML、注解 SQL 和 Provider 中 `${}` 的变量来源。', '检查 ORDER BY、表名、列名是否来自固定枚举映射。'], '`${}` 会绕过 PreparedStatement 参数绑定，造成 SQL 注入、越权查询或数据破坏。', ['值参数使用 `#{}`。', '动态标识符通过枚举或 Map 白名单转换，并拒绝未知值。'], 'MyBatis SQL Mapper XML；OWASP SQL Injection；阿里巴巴数据库规约。'),
+  rule('DEFAULT-JAVA-MYBATIS-002', '批量 foreach SQL 必须限制集合规模和空集合语义', 60, 'high', false, mybatisJavaPaths, 'MyBatis foreach 构造 IN、批量 INSERT/UPDATE/DELETE 时必须限制集合大小，并明确空集合行为。', ['检查 foreach collection 是否可能来自用户无限输入。', '检查空集合是否生成全表条件、语法错误或跳过关键约束。'], '超大 IN 和批量 SQL 会拖垮数据库、突破参数限制；空集合处理错误可能造成全表更新或运行时失败。', ['限制批量大小并分批执行。', '空集合应显式返回空结果或拒绝执行危险 DML。'], 'MyBatis Dynamic SQL；数据库参数限制；阿里巴巴数据库规约。'),
+  rule('DEFAULT-JAVA-MYBATIS-003', 'ResultMap 和关联查询必须避免隐式 N+1 与字段错映射', 55, 'medium', false, mybatisJavaPaths, '复杂 ResultMap、collection、association 和懒加载映射必须确认字段别名、主键 id 和查询次数。', ['检查嵌套 select 是否会在列表查询中触发 N+1。', '检查 resultMap 是否缺少 id 字段或列别名导致对象合并错误。'], 'N+1 会造成接口性能雪崩；字段错映射会造成脏数据、对象覆盖或权限字段混乱。', ['列表场景使用 join、批量查询或显式分页。', '为复杂映射补充列别名、id 映射和样例测试。'], 'MyBatis Result Maps；MyBatis Lazy Loading；性能审查实践。'),
+  rule('DEFAULT-JAVA-MYBATIS-004', 'Mapper 方法与 XML SQL 必须保持参数名和返回契约一致', 55, 'high', false, mybatisJavaPaths, 'Mapper 接口参数、@Param、XML 引用名和返回类型必须一致，避免运行时 BindingException 或错误映射。', ['检查多参数方法是否使用 @Param 并与 XML 引用一致。', '检查返回单对象、Optional、List、Map 和影响行数是否与 SQL 语义一致。'], '参数名不一致会在运行时报错；返回契约错误会隐藏重复数据、漏处理更新失败或误判成功。', ['为多参数加 @Param。', 'DML 返回影响行数并校验预期，查询返回类型与唯一性约束一致。'], 'MyBatis Mapper XML；MyBatis Java API；阿里巴巴异常规约。'),
+  rule('DEFAULT-JAVA-MYBATIS-005', 'MyBatis-Spring 事务管理器必须绑定相同 DataSource', 85, 'critical', false, [...mybatisJavaPaths, ...springConfigPaths], 'SqlSessionFactoryBean、Mapper 和 PlatformTransactionManager 必须使用同一 DataSource，或显式声明多数据源事务策略。', ['检查 SqlSessionFactoryBean dataSource 与 DataSourceTransactionManager/JpaTransactionManager 是否不一致。', '检查多数据源 Mapper 是否缺少路由、传播边界或分布式事务说明。'], '事务管理器绑定错误会让 Mapper 写入不受事务控制，造成异常后仍提交或跨库数据不一致。', ['确保同一数据源由同一个事务管理器管理。', '多数据源场景按业务拆分事务边界，并明确补偿或分布式事务方案。'], 'MyBatis-Spring Transactions；Spring Transaction Management。'),
   rule('DEFAULT-JAVA-JVM-001', '禁止在请求路径或用户可触发路径新增无界线程、无界队列或无背压异步任务', 85, 'high', true, javaPaths, '不得在生产请求路径中创建无界线程、无界队列、无限异步提交或缺少关闭策略的执行器。', ['检查 Executors.newCachedThreadPool、newFixedThreadPool 默认无界队列和 new Thread 循环创建。', '检查异步入口是否有容量、拒绝策略、超时、关闭和监控。'], '无界资源会导致 OOM、线程耗尽、级联超时或服务雪崩。', ['使用显式 ThreadPoolExecutor 参数和有界队列。', '为用户可触发任务增加限流、背压和拒绝策略。'], 'JDK ThreadPoolExecutor；阿里巴巴 P3C 线程池规约。'),
   rule('DEFAULT-JAVA-JVM-002', 'IO、流、连接等资源必须确定性关闭', 60, 'high', false, javaPaths, '文件、网络、数据库、流、锁和客户端连接必须有确定性释放路径。', ['检查 InputStream、OutputStream、Connection、Statement、ResultSet、HttpClient response 是否关闭。', '检查异常路径是否也能释放资源。'], '资源泄露会导致连接池耗尽、文件句柄耗尽或长时间锁定。', ['使用 try-with-resources。', '把资源生命周期交给连接池或框架托管并确认关闭语义。'], 'Oracle try-with-resources；阿里巴巴 Java 开发手册。'),
   rule('DEFAULT-JAVA-JVM-003', '阻塞调用必须设置超时和失败处理', 60, 'high', false, javaPaths, 'HTTP、RPC、数据库、缓存、文件和外部命令等阻塞调用必须有超时、取消或降级策略。', ['检查新增客户端是否设置 connect/read/write timeout。', '检查失败是否会释放线程、返回可理解错误或进入重试/降级。'], '缺少超时会耗尽线程池并放大外部依赖故障。', ['设置合理超时和重试上限。', '对用户请求链路增加熔断、降级或失败返回。'], 'Spring HTTP client 文档；JDK Process API；OWASP API4 Resource Consumption。'),
+  rule('DEFAULT-JAVA-LIB-001', 'BeanUtils 和对象拷贝不得跨安全边界盲拷贝', 75, 'high', false, javaPaths, 'Apache BeanUtils、Spring BeanUtils、MapStruct、ModelMapper 等对象拷贝不得把请求对象直接覆盖实体、权限字段、审计字段或租户字段。', ['检查 copyProperties、populate、map 是否从 DTO 直接写入 Entity。', '检查 id、tenantId、role、status、deleted、createdBy、balance 等敏感字段是否可被外部覆盖。'], '盲拷贝会造成越权修改、审计字段污染、租户串号或业务状态被伪造。', ['使用显式字段映射或忽略敏感字段。', '写入前在服务端重新计算权限、租户、状态和审计字段。'], 'Apache Commons BeanUtils；Spring BeanUtils；OWASP Mass Assignment。'),
+  rule('DEFAULT-JAVA-LIB-002', 'JSON/XML 解析中的危险多态反序列化必须禁止', 85, 'critical', true, javaPaths, 'Jackson、Fastjson、Gson、XStream、JAXB 等解析外部输入时，不得开启危险多态反序列化、autoType 或宽松类型解析。', ['检查 enableDefaultTyping、autoType、XStream permissive type、未知类型反序列化等配置。', '检查是否存在可由外部输入触发的类型漂移、代理类型和任意类实例化。'], '危险多态反序列化可能导致 RCE、任意对象构造或权限绕过。', ['关闭默认多态反序列化，使用类型白名单。', '仅允许业务 DTO 和受控类型进入反序列化链路。'], 'OWASP Deserialization Cheat Sheet；Jackson Polymorphic Deserialization；Fastjson autoType 风险。'),
+  rule('DEFAULT-JAVA-LIB-006', 'JSON/XML 解析必须限制输入大小、嵌套深度和未知字段策略', 60, 'high', false, javaPaths, '外部 JSON、XML、表单和消息体解析时应限制请求体大小、数组长度、递归深度和未知字段策略。', ['检查请求体、数组、嵌套对象、流式解析和解压后的总大小是否有上限。', '检查 FAIL_ON_UNKNOWN_PROPERTIES 或同等策略是否按业务场景显式配置。'], '无限制解析会造成内存耗尽、CPU 消耗过高、字段污染或接口契约漂移。', ['限制输入大小和结构。', '对 DTO 做 schema/validation，并明确未知字段是拒绝、忽略还是记录。'], 'OWASP Input Validation；Jackson Deserialization Features；安全解析实践。'),
+  rule('DEFAULT-JAVA-LIB-003', 'Guava、Caffeine 和本地缓存必须设置容量上限和失效策略', 65, 'high', false, javaPaths, '本地缓存不得无界增长，也不得长期缓存权限、租户、配置或敏感数据而缺少失效策略。', ['检查 CacheBuilder、Caffeine、ConcurrentHashMap 缓存是否缺少 maximumSize/expireAfter。', '检查权限、用户、租户、价格和配置变更后是否会失效。'], '无界缓存会造成 OOM；脏缓存会造成越权、价格错误或配置不一致。', ['设置容量、TTL、刷新和失效策略。', '对关键缓存增加隔离 key、监控和手动失效入口。'], 'Guava Cache；Caffeine Cache；OWASP Resource Consumption。'),
+  rule('DEFAULT-JAVA-LIB-004', '重试工具必须限制次数、退避和幂等边界', 70, 'high', false, javaPaths, 'Spring Retry、Resilience4j、Guava Retryer、自写 retry 不得对非幂等操作无限重试或无退避重试。', ['检查 retry 是否设置最大次数、超时、退避和熔断。', '检查支付、下单、扣库存、发消息等非幂等操作是否可被重复执行。'], '不受控重试会放大故障、造成重复写入、重复扣款或压垮下游。', ['只对幂等或已加幂等键的操作重试。', '设置最大次数、指数退避、总体超时和失败降级。'], 'Spring Retry；Resilience4j Retry；分布式系统重试实践。'),
+  rule('DEFAULT-JAVA-LIB-005', 'ThreadLocal 必须在池化线程中清理并避免保存请求敏感上下文', 70, 'high', false, javaPaths, 'ThreadLocal、TransmittableThreadLocal、MDC 在 Web、线程池和异步任务中必须有 clear/remove 生命周期。', ['检查用户、租户、权限、traceId、数据源路由是否存入 ThreadLocal 后缺少 finally remove。', '检查线程池复用、异步传播和异常路径是否会清理上下文。'], 'ThreadLocal 泄露会导致用户串号、租户串号、日志污染、内存泄露或数据源路由错误。', ['在 finally 中 remove/clear。', '优先用显式上下文传参，异步任务只传播必要且可清理的上下文。'], 'JDK ThreadLocal；SLF4J MDC；阿里巴巴并发规约。'),
   rule('DEFAULT-JAVA-P3C-001', '集合转 Map 必须处理重复 key', 60, 'high', false, javaPaths, '使用 stream collect(toMap) 或手写映射时必须明确重复 key 的处理方式。', ['检查 Collectors.toMap 是否提供 merge function。', '检查重复 key 是报错、保留旧值、保留新值还是聚合列表。'], '重复 key 会导致运行时异常或静默覆盖业务数据。', ['添加 merge function 并说明业务语义。', '必要时改为 groupingBy 或显式校验重复数据。'], '阿里巴巴 Java 开发手册集合处理；JDK Collectors。'),
   rule('DEFAULT-JAVA-P3C-002', 'BigDecimal 禁止使用 double 构造', 60, 'high', false, javaPaths, '金额、费率和精确小数不得通过 new BigDecimal(double) 构造。', ['检查 new BigDecimal(0.1) 等浮点构造。', '检查金额字段是否从字符串、整数分或 BigDecimal.valueOf 构造。'], '浮点二进制误差会造成账务、计费或对账偏差。', ['使用 BigDecimal.valueOf、字符串构造或最小货币单位整数。', '为金额计算补充边界测试。'], '阿里巴巴 Java 开发手册；JDK BigDecimal API。'),
   rule('DEFAULT-JAVA-P3C-003', '覆写 equals 必须同时覆写 hashCode', 55, 'high', false, javaPaths, '类覆写 equals 后必须保持 hashCode 契约一致。', ['检查实体、值对象、DTO 是否只覆写 equals。', '检查 Lombok、自生成方法和手写方法是否覆盖一致字段。'], 'HashMap、HashSet 和缓存键会出现查找失败或重复数据。', ['同时覆写 hashCode。', '优先使用 IDE/Lombok 生成并补充集合行为测试。'], 'Java Object 契约；阿里巴巴 Java 开发手册。'),
   rule('DEFAULT-JAVA-P3C-004', 'SimpleDateFormat 不得作为共享静态实例', 60, 'high', false, javaPaths, 'SimpleDateFormat 非线程安全，不得在多线程环境作为 static 共享实例。', ['检查 static SimpleDateFormat 和单例共享格式化器。', '检查线程池、Web 请求和并发任务中是否共享该实例。'], '并发格式化或解析会产生错误日期、异常或脏数据。', ['改用 DateTimeFormatter。', '如必须使用旧 API，使用局部变量或 ThreadLocal 并确保清理。'], '阿里巴巴 P3C 并发规约；JDK DateTimeFormatter。'),
+  rule('DEFAULT-JAVA-P3C-005', '集合、数组和 Optional 返回值不得用 null 表达空结果', 45, 'medium', false, javaPaths, '返回集合、数组、分页结果和 Optional 时，应使用空集合或 Optional.empty，避免调用方反复防御空指针。', ['检查新增 public 方法、Service 和 Mapper 返回 List/Set/Map/array/Optional 时是否可能返回 null。', '检查调用方是否因未判空直接遍历或链式调用。'], 'null 空结果会造成运行时 NPE，并把空语义扩散到调用链。', ['返回 Collections.emptyList、emptyMap、空数组或 Optional.empty。', '对外接口在契约中明确空值语义。'], '阿里巴巴 Java 开发手册；Effective Java；Google Java Style null practices。'),
+  rule('DEFAULT-JAVA-P3C-006', 'BigDecimal 比较数值相等不得使用 equals', 55, 'high', false, javaPaths, '金额、费率、数量等 BigDecimal 数值比较不得用 equals 判断业务相等，因为 scale 不同会导致结果不一致。', ['检查 amount.equals(BigDecimal.ZERO) 或两个金额对象 equals 比较。', '检查是否需要区分 scale 的特殊场景。'], '1.0 与 1.00 在 equals 下不相等，会导致金额判断、阈值判断或状态流转错误。', ['使用 compareTo 判断数值相等。', '确需比较 scale 时在规则或注释中说明业务含义。'], 'JDK BigDecimal；阿里巴巴 Java 开发手册。'),
+  rule('DEFAULT-JAVA-P3C-007', 'BigDecimal divide 必须显式指定精度和舍入策略', 60, 'high', false, javaPaths, 'BigDecimal 除法在不能整除时会抛 ArithmeticException，金额和费率计算必须显式指定 scale 与 RoundingMode。', ['检查 a.divide(b) 是否缺少 scale、MathContext 或 RoundingMode。', '检查舍入策略是否与业务、税务或账务口径一致。'], '非终止小数会在运行时抛异常，或因默认精度不明确造成账务偏差。', ['使用 divide(divisor, scale, roundingMode) 或 MathContext。', '统一金额精度和舍入策略，并补充边界测试。'], 'JDK BigDecimal；阿里巴巴金额精度规约。'),
+  rule('DEFAULT-JAVA-P3C-008', '禁止新增调用已废弃 API 或内部不稳定 API', 45, 'medium', false, javaPaths, '新增代码不应继续依赖 @Deprecated、sun.*、com.sun.* 或明确标注不稳定的内部 API。', ['检查新增调用是否指向 @Deprecated 类、方法、字段。', '检查是否依赖 JDK 内部包、实验性 API 或三方库内部包。'], '废弃和内部 API 可能在升级时删除或语义变化，造成构建失败、运行时异常或安全补丁无法升级。', ['迁移到官方替代 API。', '确需临时保留时写明兼容原因、版本边界和移除计划。'], 'Alibaba P3C deprecated API 规则；JDK Encapsulation；Google Java Style。'),
   rule('DEFAULT-JAVA-MAINT-001', '避免过大方法、过深嵌套和重复复杂逻辑', 35, 'medium', false, javaPaths, '新增代码应保持方法职责清晰，避免复杂分支、重复逻辑和难以审查的大段过程式代码。', ['检查单个方法是否承担多种业务职责。', '检查嵌套 if/for/try 是否影响理解和测试。'], '复杂代码会提高缺陷概率，让安全和数据一致性问题更难被审查发现。', ['提取命名清晰的小方法、领域对象或策略。', '为复杂分支补充行为测试。'], 'Fowler Refactoring；BDR bad smells；阿里巴巴 Java 开发手册。'),
 ];
 
