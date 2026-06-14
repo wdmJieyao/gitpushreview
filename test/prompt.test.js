@@ -31,7 +31,7 @@ test('buildReviewMessages includes deterministic routes and findings for AI cont
   });
 
   const userContent = messages[1].content;
-  assert.match(userContent, /# Deterministic Gate Context/);
+  assert.match(userContent, /# Static Evidence Context/);
   assert.match(userContent, /mq, kafka/);
   assert.match(userContent, /DEFAULT-MQ-KAFKA-AUTO-CREATE-001/);
   assert.match(userContent, /生产环境配置中启用了 Kafka 自动创建 Topic/);

@@ -8,14 +8,14 @@ function renderDeterministicContext({ routes = [], deterministicFindings = [], r
   const routingText = ruleRouting
     ? `totalRules=${ruleRouting.totalRules} selectedRules=${ruleRouting.selectedRules} excludedRules=${ruleRouting.excludedRules}`
     : '无';
-  return `# Deterministic Gate Context\n\n## Routes\n${routeText}\n\n## Rule Routing\n${routingText}\n\n## Findings\n${findingText}`;
+  return `# Static Evidence Context\n\n## Routes\n${routeText}\n\n## Rule Routing\n${routingText}\n\n## Findings\n${findingText}`;
 }
 
 export function buildReviewMessages({ reviewAgent, policy, bdrContext, rules, diff, files, routes = [], deterministicFindings = [], ruleRouting }) {
   return [
     {
       role: 'system',
-      content: `${reviewAgent}\n\n只返回 JSON，不要输出 Markdown 或额外说明。JSON 必须包含 findings 数组。每个 finding 必须包含 source、ruleId、title、severity、score、weightedScore、blocking、file、line、evidence、suggestion。所有面向用户的字段必须使用中文，尤其是 title、evidence、suggestion；JSON 字段名和枚举值保持英文。只对已经进入候选集的规则产出 finding；候选集由文件能力、公共兜底和 paths 共同决定。不匹配 paths 或能力路由时不得产出 finding。只有规则 hardBlock 为 true 且 diff 证据高置信、无明显白名单或豁免说明时，blocking 才允许为 hard；否则使用 soft 或 none。`,
+      content: `${reviewAgent}\n\n只返回 JSON，不要输出 Markdown 或额外说明。JSON 必须包含 findings 数组。每个 finding 必须包含 source、ruleId、title、severity、score、weightedScore、blocking、file、line、evidence、suggestion。所有面向用户的字段必须使用中文，尤其是 title、evidence、suggestion；JSON 字段名和枚举值保持英文。只对已经进入候选集的规则产出 finding；候选集由文件能力、公共兜底和 paths 共同决定。不匹配 paths 或能力路由时不得产出 finding。静态确定性检查只提供证据线索，不直接决定最终 blocking；你必须结合 BDR、Markdown 规则和 diff 独立复审、打分并产出 findings。只有规则 hardBlock 为 true 且 diff 证据高置信、无明显白名单或豁免说明时，blocking 才允许为 hard；否则使用 soft 或 none。`,
     },
     {
       role: 'user',
