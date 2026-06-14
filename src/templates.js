@@ -1,9 +1,11 @@
-export const REVIEW_AGENT = `# Review Agent
+export const REVIEW_AGENT = `# 审核代理
 
-Review only staged changes. Use BDR, default rules, project rules, and DIY rules in priority order. Return findings with evidence tied to the diff.
+只审核本次已暂存的变更。请按 BDR、默认规则、项目规则、DIY 规则的优先级进行检查，并基于 diff 给出可定位的证据。
+
+输出给开发者阅读的标题、证据和修复建议必须使用中文；JSON 字段名、枚举值和配置字段保持英文。
 `;
 
-export const POLICY = `# Review Policy
+export const POLICY = `# 审核策略
 
 \`\`\`yaml
 softBlockScore: 60
@@ -12,7 +14,7 @@ ciSoftBlockBehavior: fail
 \`\`\`
 `;
 
-export const RULES_INDEX = `# Rule Index
+export const RULES_INDEX = `# 规则索引
 
 ## BDR
 

@@ -36,3 +36,38 @@ test('callReviewModel uses apiKey from config', async () => {
   assert.equal(request.init.headers.authorization, 'Bearer config-key');
   assert.equal(content, '{"findings":[]}');
 });
+
+test('callReviewModel throws Chinese error when apiKey is missing', async () => {
+  await assert.rejects(
+    () => callReviewModel({
+      config: {
+        baseUrl: 'https://model.example/v1',
+        apiKeyEnv: 'GITPUSHREVIEW_API_KEY',
+        model: 'demo-model',
+      },
+      messages: [],
+      env: {},
+      fetchImpl: async () => ({ ok: true, async json() { return { choices: [{ message: { content: '' } }] }; } }),
+    }),
+    /缺少 API 密钥/,
+  );
+});
+
+test('callReviewModel throws Chinese error when request fails', async () => {
+  await assert.rejects(
+    () => callReviewModel({
+      config: {
+        baseUrl: 'https://model.example/v1',
+        apiKey: 'config-key',
+        model: 'demo-model',
+      },
+      messages: [],
+      fetchImpl: async () => ({
+        ok: false,
+        status: 500,
+        async text() { return 'boom'; },
+      }),
+    }),
+    /模型请求失败/,
+  );
+});

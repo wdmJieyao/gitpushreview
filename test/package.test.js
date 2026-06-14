@@ -8,3 +8,8 @@ test('package exposes gitpushreview bin and required files', () => {
   assert.equal(pkg.type, 'module');
   assert.equal(pkg.engines.node, '>=18');
 });
+
+test('bin fallback error output is Chinese', () => {
+  const bin = fs.readFileSync('bin/gitpushreview.js', 'utf8');
+  assert.match(bin, /执行失败/);
+});

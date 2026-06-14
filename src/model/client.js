@@ -4,7 +4,7 @@ export function resolveApiKey({ config, env = process.env }) {
 
 export async function callReviewModel({ config, apiKey, env = process.env, messages, fetchImpl = fetch }) {
   const resolvedApiKey = apiKey || resolveApiKey({ config, env });
-  if (!resolvedApiKey) throw new Error(`Missing API key. Set apiKey in reviewmodel.json or configure ${config.apiKeyEnv}`);
+  if (!resolvedApiKey) throw new Error(`缺少 API 密钥。请在 reviewmodel.json 中配置 apiKey，或配置环境变量 ${config.apiKeyEnv}`);
   const url = `${config.baseUrl.replace(/\/$/, '')}/chat/completions`;
   const response = await fetchImpl(url, {
     method: 'POST',
@@ -20,7 +20,7 @@ export async function callReviewModel({ config, apiKey, env = process.env, messa
   });
 
   if (!response.ok) {
-    throw new Error(`Model request failed: ${response.status} ${await response.text()}`);
+    throw new Error(`模型请求失败：${response.status} ${await response.text()}`);
   }
 
   const json = await response.json();

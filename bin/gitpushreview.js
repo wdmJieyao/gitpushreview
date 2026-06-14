@@ -10,6 +10,6 @@ main(process.argv.slice(2), {
 }).then((code) => {
   process.exitCode = code;
 }).catch((error) => {
-  console.error(error.message || error);
+  console.error(`执行失败：${error.message || error}`);
   process.exitCode = 1;
 });

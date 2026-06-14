@@ -6,7 +6,7 @@ import { readBdrStatus, renderDoctor, runDoctor } from './doctor.js';
 
 const HELP = `gitpushreview
 
-Usage:
+用法：
   gitpushreview init [--force] [--no-hook]
   gitpushreview check [--staged] [--json]
   gitpushreview doctor
@@ -25,13 +25,13 @@ export async function routeCommand(args, context) {
       force: args.includes('--force'),
       installHook: !args.includes('--no-hook'),
     });
-    return { exitCode: 0, output: `Initialized GitPushReview at ${result.root}\n` };
+    return { exitCode: 0, output: `GitPushReview 已初始化：${result.root}\n` };
   }
 
   if (args[0] === 'check') {
     const snapshot = getStagedSnapshot(context.cwd);
     if (!snapshot.diff.trim()) {
-      return { exitCode: 0, output: 'GitPushReview: no staged changes\n' };
+      return { exitCode: 0, output: 'GitPushReview：没有检测到已暂存的变更\n' };
     }
     const result = await runReview({
       cwd: snapshot.root,
@@ -58,13 +58,29 @@ export async function routeCommand(args, context) {
     return { exitCode: status.exists ? 0 : 1, output: status.text };
   }
 
-  return { exitCode: 1, output: `Unknown command: ${args[0]}\n` };
+  return { exitCode: 1, output: `未知命令：${args[0]}\n` };
+}
+
+export function formatCliError(error) {
+  const message = error?.message || String(error);
+  if (error?.code === 'ENOENT' || message.includes('no such file or directory')) {
+    return `缺少必要文件，请确认已在项目根目录执行 gitpushreview init。原始错误：${message}`;
+  }
+  if (message.includes('Command failed: git')) {
+    return `Git 命令执行失败，请确认当前目录是 Git 仓库且 Git 可用。原始错误：${message}`;
+  }
+  return `执行失败：${message}`;
 }
 
 export async function main(args, context) {
-  const result = await routeCommand(args, context);
-  if (result.output && context?.stdout?.write) {
-    context.stdout.write(result.output);
+  try {
+    const result = await routeCommand(args, context);
+    if (result.output && context?.stdout?.write) {
+      context.stdout.write(result.output);
+    }
+    return result.exitCode;
+  } catch (error) {
+    context?.stderr?.write?.(`${formatCliError(error)}\n`);
+    return 1;
   }
-  return result.exitCode;
 }

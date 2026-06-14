@@ -12,3 +12,7 @@ test('parseReviewJson extracts fenced json', () => {
   const parsed = parseReviewJson('```json\n{"findings":[]}\n```');
   assert.deepEqual(parsed.findings, []);
 });
+
+test('parseReviewJson throws Chinese error when findings are missing', () => {
+  assert.throws(() => parseReviewJson('{"summary":"ok"}'), /模型响应必须包含 findings 数组/);
+});
