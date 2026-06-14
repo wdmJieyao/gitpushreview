@@ -55,6 +55,9 @@ const expectedRuleIds = {
     'DEFAULT-JAVA-LIB-003',
     'DEFAULT-JAVA-LIB-004',
     'DEFAULT-JAVA-LIB-005',
+    'DEFAULT-JAVA-LIB-007',
+    'DEFAULT-JAVA-SPR-013',
+    'DEFAULT-JAVA-JVM-004',
     'DEFAULT-JAVA-P3C-001',
     'DEFAULT-JAVA-P3C-002',
     'DEFAULT-JAVA-P3C-003',
@@ -73,6 +76,8 @@ const expectedRuleIds = {
     'DEFAULT-VUE-SEC-005',
     'DEFAULT-VUE-SEC-006',
     'DEFAULT-VUE-SEC-007',
+    'DEFAULT-VUE-SEC-008',
+    'DEFAULT-VUE-SEC-009',
     'DEFAULT-VUE-CONTRACT-001',
     'DEFAULT-VUE-CONTRACT-002',
     'DEFAULT-VUE-CONTRACT-003',
@@ -83,6 +88,7 @@ const expectedRuleIds = {
     'DEFAULT-VUE-PERF-005',
     'DEFAULT-VUE-ASYNC-001',
     'DEFAULT-VUE-ASYNC-002',
+    'DEFAULT-VUE-AUTH-001',
     'DEFAULT-VUE-TS-001',
   ],
   'docs/default/python.md': [
@@ -91,10 +97,16 @@ const expectedRuleIds = {
     'DEFAULT-PYTHON-SEC-003',
     'DEFAULT-PYTHON-SEC-004',
     'DEFAULT-PYTHON-SEC-005',
+    'DEFAULT-PYTHON-SEC-006',
+    'DEFAULT-PYTHON-SEC-007',
+    'DEFAULT-PYTHON-SEC-008',
     'DEFAULT-PYTHON-DATA-001',
     'DEFAULT-PYTHON-TIME-001',
     'DEFAULT-PYTHON-IO-001',
     'DEFAULT-PYTHON-ASYNC-001',
+    'DEFAULT-PYTHON-WEB-001',
+    'DEFAULT-PYTHON-ARCHIVE-001',
+    'DEFAULT-PYTHON-RESOURCE-001',
     'DEFAULT-PYTHON-MAINT-001',
   ],
   'docs/default/mysql.md': [
@@ -191,6 +203,11 @@ const expectedRuleIds = {
     'DEFAULT-SEC-006',
     'DEFAULT-SEC-007',
     'DEFAULT-SEC-008',
+    'DEFAULT-SEC-009',
+    'DEFAULT-SEC-010',
+    'DEFAULT-SEC-011',
+    'DEFAULT-SEC-012',
+    'DEFAULT-SEC-013',
   ],
   'docs/default/workflow.md': [
     'DEFAULT-WORKFLOW-001',
@@ -201,6 +218,10 @@ const expectedRuleIds = {
     'DEFAULT-WORKFLOW-006',
     'DEFAULT-WORKFLOW-007',
     'DEFAULT-WORKFLOW-008',
+    'DEFAULT-WORKFLOW-009',
+    'DEFAULT-WORKFLOW-010',
+    'DEFAULT-WORKFLOW-011',
+    'DEFAULT-WORKFLOW-012',
   ],
 };
 
@@ -261,7 +282,7 @@ test('every default rule is Chinese, structured, scoped, and parseable', () => {
     }
   }
 
-  assert.equal(allRuleIds.length, 166);
+  assert.equal(allRuleIds.length, 187);
   assert.equal(new Set(allRuleIds).size, allRuleIds.length, 'default rule ids should be unique');
 });
 
@@ -315,6 +336,10 @@ test('java default path scopes cover common Spring and MyBatis project layouts',
   const parserLimits = rulesById.get('DEFAULT-JAVA-LIB-006');
   assert.equal(parserLimits.hardBlock, false);
   assert.match(parserLimits.title, /输入大小|深度|未知字段/);
+
+  assert.equal(rulesById.get('DEFAULT-JAVA-LIB-007').hardBlock, true);
+  assert.equal(rulesById.get('DEFAULT-JAVA-SPR-013').hardBlock, true);
+  assert.equal(rulesById.get('DEFAULT-JAVA-JVM-004').hardBlock, true);
 });
 
 test('database runtime rules keep high-confidence hard blocks separate from review-only risks', () => {
@@ -334,6 +359,35 @@ test('database runtime rules keep high-confidence hard blocks separate from revi
   assert.equal(droolsRules.get('DEFAULT-DROOLS-TIME-001').hardBlock, false);
 });
 
+test('thin-stack additions keep hard blocks limited to high-confidence severe risks', () => {
+  const vueRules = new Map(rulesForDefaultDoc('docs/default/vue.md').map((rule) => [rule.id, rule]));
+  const pythonRules = new Map(rulesForDefaultDoc('docs/default/python.md').map((rule) => [rule.id, rule]));
+  const securityRules = new Map(rulesForDefaultDoc('docs/default/security.md').map((rule) => [rule.id, rule]));
+  const workflowRules = new Map(rulesForDefaultDoc('docs/default/workflow.md').map((rule) => [rule.id, rule]));
+
+  assert.equal(vueRules.get('DEFAULT-VUE-SEC-008').hardBlock, false);
+  assert.equal(vueRules.get('DEFAULT-VUE-SEC-009').hardBlock, false);
+  assert.equal(vueRules.get('DEFAULT-VUE-AUTH-001').hardBlock, false);
+
+  assert.equal(pythonRules.get('DEFAULT-PYTHON-SEC-006').hardBlock, true);
+  assert.equal(pythonRules.get('DEFAULT-PYTHON-SEC-007').hardBlock, true);
+  assert.equal(pythonRules.get('DEFAULT-PYTHON-SEC-008').hardBlock, true);
+  assert.equal(pythonRules.get('DEFAULT-PYTHON-WEB-001').hardBlock, true);
+  assert.equal(pythonRules.get('DEFAULT-PYTHON-ARCHIVE-001').hardBlock, true);
+  assert.equal(pythonRules.get('DEFAULT-PYTHON-RESOURCE-001').hardBlock, false);
+
+  assert.equal(securityRules.get('DEFAULT-SEC-009').hardBlock, true);
+  assert.equal(securityRules.get('DEFAULT-SEC-010').hardBlock, true);
+  assert.equal(securityRules.get('DEFAULT-SEC-011').hardBlock, false);
+  assert.equal(securityRules.get('DEFAULT-SEC-012').hardBlock, false);
+  assert.equal(securityRules.get('DEFAULT-SEC-013').hardBlock, true);
+
+  assert.equal(workflowRules.get('DEFAULT-WORKFLOW-009').hardBlock, false);
+  assert.equal(workflowRules.get('DEFAULT-WORKFLOW-010').hardBlock, false);
+  assert.equal(workflowRules.get('DEFAULT-WORKFLOW-011').hardBlock, false);
+  assert.equal(workflowRules.get('DEFAULT-WORKFLOW-012').hardBlock, true);
+});
+
 test('initialized workspace can load all default rules end-to-end', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-default-rules-'));
   await initWorkspace({ cwd: dir, force: false, installHook: false });
@@ -343,5 +397,5 @@ test('initialized workspace can load all default rules end-to-end', async () => 
   assert.ok(source, 'initialized workspace should include Default Rules source');
 
   const rules = loadMarkdownRules({ workspaceRoot, source });
-  assert.equal(rules.length, 166);
+  assert.equal(rules.length, 187);
 });

@@ -1,0 +1,7 @@
+*.tgz
+*.zip
+*.tar
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+gitpushreview-*.tgz

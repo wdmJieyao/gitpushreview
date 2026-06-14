@@ -142,12 +142,56 @@ const demoSamples = [
     expectedRules: ['DEFAULT-JAVA-LIB-002', 'DEFAULT-JAVA-LIB-006'],
   },
   {
+    name: 'Java archive extractor trusts entry names and does not cap extracted size',
+    file: 'src/main/java/com/acme/file/ArchiveImportService.java',
+    snippet: `
+      ZipEntry entry = zip.getNextEntry();
+      Files.copy(zip, target.resolve(entry.getName()));
+    `,
+    expectedRules: ['DEFAULT-JAVA-LIB-007', 'DEFAULT-JAVA-SEC-008'],
+  },
+  {
+    name: 'Spring CORS allows wildcard origins with credentials',
+    file: 'src/main/java/com/acme/config/WebCorsConfig.java',
+    snippet: `
+      registry.addMapping("/api/**").allowedOrigins("*").allowCredentials(true);
+    `,
+    expectedRules: ['DEFAULT-JAVA-SPR-013', 'DEFAULT-SEC-009'],
+  },
+  {
+    name: 'Java logging configuration enables unsafe lookup from request data',
+    file: 'src/main/java/com/acme/audit/AuditLogger.java',
+    snippet: `
+      log.info("login user={}", request.getHeader("X-User"));
+      // pattern enables lookup substitution for untrusted values
+    `,
+    expectedRules: ['DEFAULT-JAVA-JVM-004'],
+  },
+  {
     name: 'Vue component renders API HTML directly',
     file: 'src/views/Profile.vue',
     snippet: `
       <template><section v-html="profile.bioHtml"></section></template>
     `,
     expectedRules: ['DEFAULT-VUE-SEC-002', 'DEFAULT-SEC-004'],
+  },
+  {
+    name: 'Vue request relies on withCredentials and frontend route role only',
+    file: 'src/views/admin/UserAdmin.vue',
+    snippet: `
+      axios.get("/api/admin/users", { withCredentials: true });
+      if (route.meta.role === "admin") showDelete.value = true;
+    `,
+    expectedRules: ['DEFAULT-VUE-SEC-008', 'DEFAULT-VUE-AUTH-001'],
+  },
+  {
+    name: 'Vue blob preview opens untrusted file and never revokes object url',
+    file: 'src/views/file/FilePreview.vue',
+    snippet: `
+      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      window.open(url);
+    `,
+    expectedRules: ['DEFAULT-VUE-SEC-009'],
   },
   {
     name: 'Python endpoint executes user controlled shell command',
@@ -157,6 +201,33 @@ const demoSamples = [
       subprocess.run(cmd, shell=True)
     `,
     expectedRules: ['DEFAULT-PYTHON-SEC-002'],
+  },
+  {
+    name: 'Python loads untrusted yaml and disables TLS verification',
+    file: 'src/app/imports/config_loader.py',
+    snippet: `
+      config = yaml.load(request.files["file"].read())
+      requests.get(config["callback"], verify=False)
+    `,
+    expectedRules: ['DEFAULT-PYTHON-SEC-006', 'DEFAULT-PYTHON-SEC-007'],
+  },
+  {
+    name: 'Python URL fetch and tar extraction miss SSRF and archive guards',
+    file: 'src/app/files/fetch_extract.py',
+    snippet: `
+      data = requests.get(request.args["url"]).content
+      tarfile.open(fileobj=BytesIO(data)).extractall(upload_dir)
+    `,
+    expectedRules: ['DEFAULT-PYTHON-SEC-008', 'DEFAULT-PYTHON-ARCHIVE-001'],
+  },
+  {
+    name: 'Python production app starts with debug and unbounded upload parsing',
+    file: 'src/app/api/server.py',
+    snippet: `
+      app.run(host="0.0.0.0", debug=True)
+      rows = pandas.read_excel(request.files["sheet"])
+    `,
+    expectedRules: ['DEFAULT-PYTHON-WEB-001', 'DEFAULT-PYTHON-RESOURCE-001'],
   },
   {
     name: 'Oracle package executes dynamic SQL',
@@ -184,6 +255,97 @@ const demoSamples = [
     file: 'Dockerfile',
     snippet: 'ENV API_TOKEN=real-token-value',
     expectedRules: ['DEFAULT-SEC-001'],
+  },
+  {
+    name: 'Nginx CORS and cookie security headers are weakened',
+    file: 'nginx/conf.d/app.conf',
+    snippet: `
+      add_header Access-Control-Allow-Origin *;
+      add_header Access-Control-Allow-Credentials true;
+      add_header Set-Cookie "sid=$sid; SameSite=None";
+    `,
+    expectedRules: ['DEFAULT-SEC-009', 'DEFAULT-SEC-010'],
+  },
+  {
+    name: 'Public production configuration exposes debug management surfaces',
+    file: 'k8s/prod/app.yaml',
+    snippet: `
+      SPRING_PROFILES_ACTIVE: prod
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "*"
+      H2_CONSOLE_ENABLED: "true"
+    `,
+    expectedRules: ['DEFAULT-SEC-013', 'DEFAULT-WORKFLOW-009'],
+  },
+  {
+    name: 'Package change adds install script and weakens supply chain lock discipline',
+    file: 'package.json',
+    snippet: `
+      { "scripts": { "postinstall": "curl https://example.com/install.sh | sh" },
+        "dependencies": { "left-pad": "github:user/repo" } }
+    `,
+    expectedRules: ['DEFAULT-SEC-012', 'DEFAULT-WORKFLOW-007'],
+  },
+  {
+    name: 'Maven build file uses a drifting dependency version without lock discipline',
+    file: 'pom.xml',
+    snippet: `
+      <dependency>
+        <groupId>org.example</groupId>
+        <artifactId>unsafe-lib</artifactId>
+        <version>LATEST</version>
+      </dependency>
+    `,
+    expectedRules: ['DEFAULT-SEC-012', 'DEFAULT-WORKFLOW-007'],
+  },
+  {
+    name: 'Python packaging files add an unpinned dependency and editable install',
+    file: 'pyproject.toml',
+    snippet: `
+      [project]
+      dependencies = ["requests", "pkg @ git+https://example.com/repo.git"]
+    `,
+    expectedRules: ['DEFAULT-SEC-012', 'DEFAULT-WORKFLOW-007'],
+  },
+  {
+    name: 'Search export endpoint lacks rate and result limits',
+    file: 'src/main/java/com/acme/report/ExportController.java',
+    snippet: `
+      @GetMapping("/export")
+      public List<Row> export(String q) { return reportService.searchAll(q); }
+    `,
+    expectedRules: ['DEFAULT-SEC-011'],
+  },
+  {
+    name: 'GitHub Actions bypasses tests and security scan',
+    file: '.github/workflows/ci.yml',
+    snippet: `
+      - run: npm test -- --passWithNoTests || true
+      - run: mvn test -DskipTests
+      continue-on-error: true
+    `,
+    expectedRules: ['DEFAULT-WORKFLOW-012'],
+  },
+  {
+    name: 'High risk rollout misses feature flag rollback and observability',
+    file: 'deploy/prod/order-migration.yaml',
+    snippet: `
+      change: migrate all orders immediately
+      rollback: none
+      metrics: none
+    `,
+    expectedRules: ['DEFAULT-WORKFLOW-010'],
+  },
+  {
+    name: 'Build artifact is committed as a generated package',
+    file: 'dist/app/gitpushreview-0.1.0.tgz',
+    snippet: 'binary package archive generated by npm pack',
+    expectedRules: ['DEFAULT-WORKFLOW-011'],
+  },
+  {
+    name: 'Recursive source map and node_modules artifact are left in the tree',
+    file: 'web/dist/assets/app.js.map',
+    snippet: 'sourcemap output',
+    expectedRules: ['DEFAULT-WORKFLOW-011'],
   },
   {
     name: 'Database migration changes schema',
