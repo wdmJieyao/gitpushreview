@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadBdrContext } from '../bdr/provider.js';
-import { callReviewModel } from '../model/client.js';
+import { callReviewModel, resolveApiKey } from '../model/client.js';
 import { parseRuleIndex, loadMarkdownRules } from '../rules/index.js';
 import { decideReview } from './decision.js';
 import { buildReviewMessages } from './prompt.js';
@@ -52,18 +52,30 @@ export async function runReview({ cwd, diff, files, fileContents = {}, modelInvo
   const modelConfig = readJson(path.join(workspaceRoot, 'config', 'reviewmodel.json'));
   const gateResult = runDeterministicGates({ files, diff, fileContents });
   const routedRules = routeRulesForFiles({ rules: markdownRules, routes: gateResult.routes });
-  if (gateResult.findings.some((finding) => finding.blocking === 'hard')) {
-    const findings = normalizeFindings(gateResult.findings, markdownRules);
-    return { findings, decision: decideReview(findings, policy), routes: gateResult.routes, ruleRouting: routedRules.diagnostics };
-  }
   const messages = buildReviewMessages({ reviewAgent, policy: policy.raw, bdrContext, rules: routedRules.rules, diff, files, deterministicFindings: gateResult.findings, routes: gateResult.routes, ruleRouting: routedRules.diagnostics });
   const invoke = modelInvoker || ((input) => callReviewModel({
     config: modelConfig,
     env,
     messages: input.messages,
   }));
-  const text = await invoke({ messages, modelConfig });
-  const parsed = parseReviewJson(text);
+  const hasDeterministicHard = gateResult.findings.some((finding) => finding.blocking === 'hard');
+  const canCallModel = Boolean(modelInvoker || resolveApiKey({ config: modelConfig, env }));
+  let parsed = { findings: [] };
+  let aiAssist = { attempted: false, skipped: false, error: '' };
+
+  if (!hasDeterministicHard || canCallModel) {
+    try {
+      aiAssist = { attempted: true, skipped: false, error: '' };
+      const responseText = await invoke({ messages, modelConfig });
+      parsed = parseReviewJson(responseText);
+    } catch (error) {
+      if (!hasDeterministicHard) throw error;
+      aiAssist = { attempted: true, skipped: false, error: error?.message || String(error) };
+    }
+  } else {
+    aiAssist = { attempted: false, skipped: true, error: '未配置 API Key，已使用静态确定性结果完成强拦截。' };
+  }
+
   const findings = normalizeFindings([...gateResult.findings, ...parsed.findings], markdownRules);
-  return { findings, decision: decideReview(findings, policy), routes: gateResult.routes, ruleRouting: routedRules.diagnostics };
+  return { findings, decision: decideReview(findings, policy), routes: gateResult.routes, ruleRouting: routedRules.diagnostics, aiAssist };
 }

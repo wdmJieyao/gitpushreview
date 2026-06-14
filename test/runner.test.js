@@ -44,7 +44,7 @@ test('runReview prefers apiKey from reviewmodel config over environment variable
   assert.equal(result.decision.status, 'PASS');
 });
 
-test('runReview hard-blocks deterministic SQL finding before calling model', async () => {
+test('runReview hard-blocks deterministic SQL finding while still calling AI assistant', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-runner-deterministic-sql-'));
   await initWorkspace({ cwd: dir, installHook: false });
   let called = false;
@@ -55,12 +55,13 @@ test('runReview hard-blocks deterministic SQL finding before calling model', asy
     files: ['sql/test.sql'],
     modelInvoker: async () => {
       called = true;
-      throw new Error('AI should not be called');
+      return '{"findings":[{"source":"ai","ruleId":"DEFAULT-SQL-INSERT-ARITY-001","score":30,"weightedScore":30,"blocking":"none","title":"AI 辅助说明","severity":"medium","evidence":"AI 确认 INSERT 列值数量不一致。","suggestion":"补齐 values 或删除多余列。"}]}';
     },
     env: { GITPUSHREVIEW_API_KEY: 'test' },
   });
 
-  assert.equal(called, false);
+  assert.equal(called, true);
+  assert.equal(result.aiAssist.attempted, true);
   assert.equal(result.decision.status, 'HARD_BLOCK');
   assert.equal(result.findings[0].source, 'deterministic');
   assert.equal(result.findings[0].ruleId, 'DEFAULT-SQL-INSERT-ARITY-001');
@@ -76,9 +77,7 @@ test('runReview uses staged file contents for deterministic hard blocks', async 
     diff: "diff --git a/sql/test.sql b/sql/test.sql\n@@ -0,0 +1 @@\n+insert into users(id, name) values (1, 'ok');\n",
     files: ['sql/test.sql'],
     fileContents: { 'sql/test.sql': 'insert into users(id, name) values (1);' },
-    modelInvoker: async () => {
-      throw new Error('AI should not be called');
-    },
+    modelInvoker: async () => '{"findings":[]}',
     env: { GITPUSHREVIEW_API_KEY: 'test' },
   });
 
@@ -120,4 +119,21 @@ test('runReview downgrades hard model findings when the matched rule is soft-onl
 
   assert.equal(result.findings[0].blocking, 'soft');
   assert.equal(result.decision.status, 'SOFT_BLOCK');
+});
+
+test('runReview keeps deterministic hard block when API key is missing', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-runner-static-hard-no-key-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+
+  const result = await runReview({
+    cwd: dir,
+    diff: "diff --git a/sql/test.sql b/sql/test.sql\nnew file mode 100644\n--- /dev/null\n+++ b/sql/test.sql\n@@ -0,0 +1 @@\n+insert into users (id, name, email) values (1, 'Alice');\n",
+    files: ['sql/test.sql'],
+    env: {},
+  });
+
+  assert.equal(result.decision.status, 'HARD_BLOCK');
+  assert.equal(result.aiAssist.skipped, true);
+  assert.match(result.aiAssist.error, /未配置 API Key/);
+  assert.equal(result.findings[0].source, 'deterministic');
 });
