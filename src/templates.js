@@ -45,9 +45,14 @@ files:
   - ../docs/default/python.md
   - ../docs/default/mysql.md
   - ../docs/default/oracle.md
+  - ../docs/default/postgresql.md
+  - ../docs/default/oceanbase.md
+  - ../docs/default/redis.md
+  - ../docs/default/rabbitmq.md
   - ../docs/default/drools.md
   - ../docs/default/security.md
   - ../docs/default/workflow.md
+  - ../docs/default/sqlfluff.md
 \`\`\`
 
 ## Project Rules
@@ -156,6 +161,116 @@ const oraclePaths = [
   '**/*Oracle*.java',
   '**/*Repository*',
   '**/*DAO*',
+];
+const postgresqlPaths = [
+  'db/postgresql/**',
+  'db/postgres/**',
+  'database/postgresql/**',
+  'database/postgres/**',
+  'schema/postgresql/**',
+  'schema/postgres/**',
+  'migrations/postgresql/**',
+  'migrations/postgres/**',
+  'postgresql/**',
+  'postgres/**',
+  '**/*.pgsql.sql',
+  '**/*.postgres.sql',
+  '**/*postgres*.sql',
+  '**/*pgsql*.sql',
+  '**/*Mapper*.xml',
+  '**/*Mapper*.java',
+  '**/*Repository*.java',
+  '**/*DAO*.java',
+  '**/*Dao*.java',
+  '**/*Service*.java',
+];
+const oceanbasePaths = [
+  'db/oceanbase/**',
+  'database/oceanbase/**',
+  'schema/oceanbase/**',
+  'migrations/oceanbase/**',
+  'oceanbase/**',
+  '**/*.oceanbase.sql',
+  '**/*oceanbase*.sql',
+  '**/*Mapper*.xml',
+  '**/*Mapper*.java',
+  '**/*Repository*.java',
+  '**/*DAO*.java',
+  '**/*Dao*.java',
+  '**/*Service*.java',
+];
+const redisPaths = [
+  '**/*Redis*.java',
+  '**/*Redis*.kt',
+  '**/*Cache*.java',
+  '**/*Cache*.kt',
+  '**/*redis*.py',
+  '**/*cache*.py',
+  'src/main/resources/**/*redis*.yml',
+  'src/main/resources/**/*redis*.yaml',
+  'src/main/resources/**/*redis*.properties',
+  'src/main/resources/**/redis/**/*.yml',
+  'src/main/resources/**/redis/**/*.yaml',
+  'src/main/resources/**/redis/**/*.properties',
+  'config/**/*redis*',
+  'redis/**',
+];
+const rabbitmqPaths = [
+  '**/*Rabbit*.java',
+  '**/*Rabbit*.kt',
+  '**/*Amqp*.java',
+  '**/*Amqp*.kt',
+  '**/*Listener.java',
+  '**/*Consumer.java',
+  '**/*Producer.java',
+  '**/*rabbit*.py',
+  '**/*amqp*.py',
+  'src/main/resources/**/*rabbit*.yml',
+  'src/main/resources/**/*rabbit*.yaml',
+  'src/main/resources/**/*rabbit*.properties',
+  'src/main/resources/**/*amqp*.yml',
+  'src/main/resources/**/*amqp*.yaml',
+  'src/main/resources/**/*amqp*.properties',
+  'src/main/resources/**/rabbitmq/**/*.yml',
+  'src/main/resources/**/rabbitmq/**/*.yaml',
+  'src/main/resources/**/rabbitmq/**/*.properties',
+  'config/**/*rabbit*',
+  'rabbitmq/**',
+];
+const sqlfluffPaths = [
+  '.sqlfluff',
+  'pyproject.toml',
+  'setup.cfg',
+  'tox.ini',
+  '.github/workflows/*.yml',
+  '.github/workflows/*.yaml',
+  '.gitlab-ci.yml',
+  'Jenkinsfile',
+  '**/*.sql',
+];
+const springCloudPaths = [
+  '**/*Client.java',
+  '**/*Feign*.java',
+  '**/*Controller.java',
+  '**/*Interceptor.java',
+  '**/*Filter.java',
+  '**/*.java',
+  'src/main/resources/**/*.yml',
+  'src/main/resources/**/*.yaml',
+  'src/main/resources/**/*.properties',
+];
+const seataPaths = [
+  '**/*.java',
+  '**/*Service.java',
+  '**/*Repository.java',
+  '**/*Mapper.java',
+  '**/*DAO.java',
+  '**/*Dao.java',
+  'src/main/resources/**/*.yml',
+  'src/main/resources/**/*.yaml',
+  'src/main/resources/**/*.properties',
+  '**/registry*.conf',
+  '**/file.conf',
 ];
 const droolsPaths = [
   '**/*.drl',
@@ -378,6 +493,12 @@ const javaRules = [
   rule('DEFAULT-JAVA-P3C-006', 'BigDecimal 比较数值相等不得使用 equals', 55, 'high', false, javaPaths, '金额、费率、数量等 BigDecimal 数值比较不得用 equals 判断业务相等，因为 scale 不同会导致结果不一致。', ['检查 amount.equals(BigDecimal.ZERO) 或两个金额对象 equals 比较。', '检查是否需要区分 scale 的特殊场景。'], '1.0 与 1.00 在 equals 下不相等，会导致金额判断、阈值判断或状态流转错误。', ['使用 compareTo 判断数值相等。', '确需比较 scale 时在规则或注释中说明业务含义。'], 'JDK BigDecimal；阿里巴巴 Java 开发手册。'),
   rule('DEFAULT-JAVA-P3C-007', 'BigDecimal divide 必须显式指定精度和舍入策略', 60, 'high', false, javaPaths, 'BigDecimal 除法在不能整除时会抛 ArithmeticException，金额和费率计算必须显式指定 scale 与 RoundingMode。', ['检查 a.divide(b) 是否缺少 scale、MathContext 或 RoundingMode。', '检查舍入策略是否与业务、税务或账务口径一致。'], '非终止小数会在运行时抛异常，或因默认精度不明确造成账务偏差。', ['使用 divide(divisor, scale, roundingMode) 或 MathContext。', '统一金额精度和舍入策略，并补充边界测试。'], 'JDK BigDecimal；阿里巴巴金额精度规约。'),
   rule('DEFAULT-JAVA-P3C-008', '禁止新增调用已废弃 API 或内部不稳定 API', 45, 'medium', false, javaPaths, '新增代码不应继续依赖 @Deprecated、sun.*、com.sun.* 或明确标注不稳定的内部 API。', ['检查新增调用是否指向 @Deprecated 类、方法、字段。', '检查是否依赖 JDK 内部包、实验性 API 或三方库内部包。'], '废弃和内部 API 可能在升级时删除或语义变化，造成构建失败、运行时异常或安全补丁无法升级。', ['迁移到官方替代 API。', '确需临时保留时写明兼容原因、版本边界和移除计划。'], 'Alibaba P3C deprecated API 规则；JDK Encapsulation；Google Java Style。'),
+  rule('DEFAULT-JAVA-SEATA-001', 'Seata 全局事务不得吞掉异常后正常返回', 95, 'critical', true, seataPaths, '使用 Seata @GlobalTransactional、AT、TCC 或 Saga 处理跨服务写入时，分支失败不得被 catch 后正常返回，必须触发回滚、补偿或明确失败状态。', ['检查 @GlobalTransactional 方法内是否捕获 Exception、Throwable、RuntimeException 后仅记录日志或 return。', '检查远程扣款、库存、订单、积分等分支失败后是否重新抛出、标记 rollbackOnly 或进入补偿任务。'], '全局事务吞掉异常会让 Seata 认为事务成功，造成资金、库存、订单状态或消息结果跨服务不一致。', ['捕获异常后重新抛出能触发全局回滚的异常，或显式设置回滚状态。', '确需继续执行时必须记录补偿单、失败状态和可重试任务，并为失败分支补充测试。'], 'Apache Seata Global Transaction；Seata AT/TCC 模式文档；分布式事务一致性实践。'),
+  rule('DEFAULT-JAVA-SEATA-002', 'Seata TCC/Saga 分支必须具备幂等、空回滚和防悬挂', 95, 'critical', true, seataPaths, 'TCC、Saga 或自定义补偿分支必须定义 try/confirm/cancel 边界，并处理重复调用、空回滚和 cancel 先于 try 到达的悬挂场景。', ['检查 confirm/cancel 是否以全局事务 ID、分支 ID 或业务幂等键防重复。', '检查 cancel 在 try 未成功或未执行时是否能安全空回滚，并防止后续 try 再写入。'], 'TCC 协议缺失会造成重复扣款、重复解冻、补偿覆盖成功结果或悬挂事务污染后续请求。', ['为每个分支写入事务日志或状态表，记录 try/confirm/cancel 状态。', 'confirm/cancel 必须幂等，cancel 必须支持空回滚并标记防悬挂。'], 'Apache Seata TCC 模式；Seata Saga 模式；分布式事务 TCC 设计实践。'),
+  rule('DEFAULT-JAVA-CLOUD-001', 'Spring Cloud 跨服务调用必须声明超时、重试和降级边界', 70, 'high', false, springCloudPaths, 'OpenFeign、RestTemplate、WebClient、Spring Cloud Gateway 或自写 HTTP 客户端的跨服务调用必须有连接超时、读取超时、总体超时、重试次数、退避和降级策略。', ['检查 Feign、RestTemplate、WebClient、OkHttp、HttpClient 配置是否缺少 timeout。', '检查 retry 是否只用于幂等接口，并是否有最大次数、退避、熔断或 fallback。'], '无超时会拖垮线程池；对非幂等操作重试会造成重复下单、重复扣款、重复发消息或级联故障。', ['设置连接、读取和总体超时。', '只对幂等调用开启有限重试，并配合熔断、隔离、fallback 和监控指标。'], 'Spring Cloud OpenFeign；Spring Retry；Resilience4j；微服务韧性设计实践。'),
+  rule('DEFAULT-JAVA-CLOUD-002', '跨服务身份上下文不得信任客户端伪造 Header', 95, 'critical', true, springCloudPaths, '用户、租户、角色、权限、组织和数据范围等身份上下文不得直接信任浏览器或外部客户端传入的 Header。', ['检查 X-User-Id、X-Tenant-Id、X-Role、X-Org-Id、Authorization 解析是否来自可信网关或认证服务。', '检查 Feign 透传 Header 是否有签名、网关注入、服务间认证或零信任校验。'], '攻击者伪造 Header 可绕过认证授权，造成水平越权、跨租户数据泄露或管理权限冒用。', ['只接受网关或认证服务签发的身份上下文，并校验签名、来源和过期时间。', '内部服务间调用使用 mTLS、JWT 签名或等价可信凭据，禁止直接透传外部身份字段。'], 'OWASP API Security Broken Access Control；Spring Security Resource Server；微服务零信任实践。'),
+  rule('DEFAULT-JAVA-NULL-001', '外部输入和可空返回解引用前必须显式建模或判空', 65, 'high', false, javaPaths, '@Nullable 返回、Map.get、集合查找、反序列化 DTO、外部接口响应和配置绑定字段在解引用前必须通过 Optional、校验约束、默认值或显式判空表达空值语义。', ['检查 Map.get、findFirst().orElse(null)、repository 查询、JSON/消息反序列化字段是否直接链式调用。', '检查 @Nullable、Optional、Bean Validation、Objects.requireNonNull 或空对象默认值是否表达契约。'], '空值契约不清会导致生产 NPE，常出现在少量脏数据、灰度字段、外部接口缺字段和缓存未命中场景。', ['用 Optional、空集合、校验注解或明确默认值表达可空语义。', '对外部 DTO 和反序列化结果先做 schema/Bean Validation，再进入业务逻辑。'], 'Uber NullAway；Error Prone Nullness；阿里巴巴 Java 开发手册空指针规约。'),
+  rule('DEFAULT-JAVA-ERRPRONE-001', '不得忽略异步任务异常、Future 返回值和中断语义', 95, 'critical', true, javaPaths, 'Future、CompletableFuture、ExecutorService、@Async 和线程中断处理不得丢弃异常、忽略返回值或吞掉 InterruptedException。', ['检查 submit/execute/runAsync/supplyAsync 后是否没有 join/get/exceptionally/whenComplete 或集中错误处理。', '检查 catch InterruptedException 后是否恢复 Thread.currentThread().interrupt()、退出循环或向上抛出。'], '异步异常丢失会让关键任务假成功；吞掉中断会导致线程无法停止、发布卡死、任务重复执行或资源长期占用。', ['为异步任务增加统一异常处理、结果检查和告警。', '捕获 InterruptedException 后恢复中断标记并按业务退出、回滚或抛出。'], 'Google Error Prone FutureReturnValueIgnored；Error Prone InterruptedExceptionSwallowed；JDK Concurrency。'),
   rule('DEFAULT-JAVA-MAINT-001', '避免过大方法、过深嵌套和重复复杂逻辑', 35, 'medium', false, javaPaths, '新增代码应保持方法职责清晰，避免复杂分支、重复逻辑和难以审查的大段过程式代码。', ['检查单个方法是否承担多种业务职责。', '检查嵌套 if/for/try 是否影响理解和测试。'], '复杂代码会提高缺陷概率，让安全和数据一致性问题更难被审查发现。', ['提取命名清晰的小方法、领域对象或策略。', '为复杂分支补充行为测试。'], 'Fowler Refactoring；BDR bad smells；阿里巴巴 Java 开发手册。'),
 ];
 
@@ -403,6 +524,11 @@ const vueRules = [
   rule('DEFAULT-VUE-ASYNC-002', 'fetch/axios 必须处理失败、loading 复位和用户可理解错误状态', 55, 'high', false, vuePaths, '前端请求必须处理网络错误、HTTP 非成功状态和 finally 清理。', ['检查 catch、response.ok、axios error 和 loading finally。', '检查错误是否反馈给用户或上层流程。'], '吞错会造成假成功、无限 loading 或数据不一致。', ['补充错误处理和 finally。', '为关键流程添加重试或用户可理解提示。'], 'MDN Fetch；Axios Error Handling；Vue Guide。'),
   rule('DEFAULT-VUE-AUTH-001', '权限菜单、路由和按钮变更必须同步后端授权契约', 75, 'high', false, vuePaths, '新增或调整权限菜单、路由 meta、按钮权限和前端角色映射时，必须同步后端权限码、接口授权和资源归属策略。', ['检查前端权限码、菜单配置和后端接口权限注解或权限表是否一致。', '检查隐藏按钮后是否仍能通过接口直接执行高风险操作。'], '前后端权限契约漂移会造成误授权、误拒绝或前端隐藏但接口可直调的越权风险。', ['把权限码作为稳定契约维护，并补充接口级授权。', '为关键权限补充前后端契约测试或说明。'], 'OWASP Broken Access Control；Vue Router；企业权限模型实践。'),
   rule('DEFAULT-VUE-TS-001', '避免新增 any、@ts-ignore 和不必要的非空断言', 45, 'medium', false, ['**/*.vue', '**/*.ts', '**/*.tsx'], '新增类型逃逸必须有明确理由，不得用 any 或 @ts-ignore 掩盖组件和接口契约问题。', ['检查 any、as any、@ts-ignore、! 非空断言。', '检查接口响应和 props 是否可用类型建模。'], '类型逃逸会把可发现错误推迟到运行时。', ['补充真实类型、泛型或类型守卫。', '确需忽略时写明原因和移除条件。'], 'TypeScript noImplicitAny；typescript-eslint no-explicit-any。'),
+  rule('DEFAULT-VUE-CONTRACT-004', 'setup 中 await 后不得注册依赖当前实例的 Vue 上下文 API', 65, 'high', false, vuePaths, '在 setup 或 composable 中执行 await 后，再调用 onMounted、watch、provide、inject、getCurrentInstance 等依赖当前组件实例的 API，可能丢失生命周期绑定。', ['检查 async setup、顶层 await 和 composable 内 await 之后是否注册生命周期、watch、provide/inject 或上下文 API。', '检查异步初始化是否能改为先注册副作用，再在副作用内部等待数据。'], '生命周期绑定丢失会导致清理失效、监听残留、状态写入错误或 SSR/客户端表现不一致。', ['在第一个 await 之前注册生命周期和 watcher。', '把异步逻辑放入已注册的回调、watchEffect 或显式 action 中，并补充卸载测试。'], 'Vue Composition API lifecycle hooks；Vue Watchers；eslint-plugin-vue/no-lifecycle-after-await。'),
+  rule('DEFAULT-VUE-CONTRACT-005', 'composable、watch、事件监听和定时器必须随生命周期清理', 60, 'high', false, vuePaths, '组件和 composable 中创建的 watch、effectScope、DOM 事件、订阅、定时器、WebSocket、BroadcastChannel 等副作用必须有停止或清理路径。', ['检查 watch/watchEffect 返回的 stop 是否在脱离组件生命周期时被调用。', '检查 addEventListener、setInterval、订阅和连接是否在 onUnmounted、onScopeDispose 或 cleanup 中释放。'], '副作用不清理会造成重复请求、内存泄露、旧用户状态串扰和页面越用越慢。', ['把副作用绑定到组件生命周期或 effectScope。', '在 onUnmounted、onScopeDispose、watch cleanup 中移除监听、关闭连接和清理定时器。'], 'Vue Watchers cleanup；Vue effectScope/onScopeDispose；MDN EventTarget removeEventListener。'),
+  rule('DEFAULT-VUE-CONTRACT-006', '响应式对象跨组件或异步传递不得丢失响应性', 55, 'medium', false, vuePaths, 'props、ref、reactive、Pinia state 在解构、浅拷贝、JSON clone、异步缓存或跨组件传递时，应避免丢失响应式追踪或写入错误副本。', ['检查直接解构 props/reactive 后在模板或 watch 中使用。', '检查 JSON.parse(JSON.stringify())、Object.assign、展开运算符是否复制响应式状态后继续期待自动更新。'], '响应性丢失会让页面数据不刷新、表单回显错乱、watch 不触发或父子组件状态分叉。', ['使用 toRefs、toRef、computed 或 storeToRefs 保留响应性。', '确需快照时命名为 snapshot 并避免继续作为响应式来源。'], 'Vue Reactivity Fundamentals；Vue Props 解构实践；Pinia storeToRefs。'),
+  rule('DEFAULT-VUE-ROUTER-001', '路由参数参与请求、权限和跳转前必须 schema 或白名单校验', 70, 'high', false, vuePaths, 'route params、query、hash、history state 和 returnUrl 在用于 API 请求、权限判断、重定向、文件路径或筛选条件前必须校验格式、枚举和边界。', ['检查 route.query/params 是否直接拼入接口、跳转、下载地址、排序字段或权限逻辑。', '检查是否使用 schema、类型守卫、白名单枚举、URL 协议限制和默认值。'], '路由输入不受控会导致越权查询、开放重定向、XSS、错误筛选或接口压力放大。', ['为路由输入建立 schema 校验和默认值。', '排序、状态、跳转目标和资源 ID 必须通过白名单或服务端二次校验。'], 'Vue Router；OWASP Unvalidated Redirects；OWASP Input Validation。'),
+  rule('DEFAULT-FE-TS-002', 'API、存储、postMessage 和环境输入必须先按 unknown 校验', 75, 'high', false, vuePaths, '来自 API、localStorage、sessionStorage、postMessage、URL、环境变量和第三方 SDK 的数据不得直接 as 成业务类型，应先按 unknown 进入 schema 校验或类型守卫。', ['检查 await res.json() as Xxx、JSON.parse(...) as Xxx、event.data as Xxx、import.meta.env 直接信任。', '检查关键字段是否经过 zod、valibot、io-ts、手写 type guard 或服务端契约校验。'], '类型断言不会做运行时校验，外部数据缺字段或被污染时会造成权限误判、页面崩溃和脏数据提交。', ['外部输入先标记为 unknown，再通过 schema/类型守卫转换为业务类型。', '失败时进入错误状态、默认值或拒绝流程，不要继续使用半可信对象。'], 'TypeScript unknown；typescript-eslint no-unsafe-*；OWASP Input Validation。'),
 ];
 
 const pythonRules = [
@@ -458,6 +584,7 @@ const mysqlRules = [
   rule('DEFAULT-MYSQL-BACKUP-001', '破坏性 DML、数据修复和批量迁移必须有备份、校验和恢复方案', 90, 'critical', true, mysqlPaths, '涉及删除、覆盖、批量修复、历史数据迁移和高风险回填时，必须能说明执行前备份、影响行数校验、抽样验证和恢复路径。', ['检查 DELETE/UPDATE/MERGE/DROP/TRUNCATE、分区清理和历史数据归档脚本是否有 dry-run 或影响范围预估。', '检查是否提供备份、恢复 SQL、校验 SQL、执行窗口和责任人。'], '数据修复一旦写错可能造成不可逆数据损坏、账务差异或跨租户数据污染。', ['执行前备份或快照关键数据。', '分批执行并记录影响行数，执行后用校验 SQL 验证结果。'], 'MySQL Backup and Recovery；阿里巴巴数据库规约；生产数据修复实践。'),
   rule('DEFAULT-MYSQL-PART-001', '分区表变更必须校验唯一键、分区裁剪和破坏性分区操作', 80, 'critical', true, mysqlPaths, '新增、调整、交换、清理或删除分区时，必须说明分区键、唯一键约束、分区裁剪效果、归档备份和回滚策略。', ['检查 DROP/TRUNCATE/EXCHANGE PARTITION 是否有备份和校验。', '检查唯一键是否包含分区键，查询条件是否能利用分区裁剪。'], '分区维护错误可能直接丢失整段历史数据，或让查询退化为扫描所有分区。', ['先归档和校验待处理分区。', '为分区键、唯一键和核心查询补充验证 SQL 与回滚方案。'], 'MySQL Partitioning；MySQL ALTER TABLE Partition Operations。'),
   rule('DEFAULT-MYSQL-JSON-001', 'JSON 字段用于查询时必须有结构约束和索引策略', 55, 'high', false, mysqlPaths, 'JSON 字段承载查询、过滤、排序或唯一语义时，应声明结构约束、字段兼容策略和生成列或函数索引方案。', ['检查 JSON_EXTRACT、->、->> 是否出现在热点 where/order by/group by。', '检查 JSON 文档结构是否有服务端校验、版本兼容和索引策略。'], '无约束 JSON 会让结构漂移、索引缺失和类型比较问题在生产中表现为慢查询或脏数据。', ['为热点 JSON 路径建立生成列或函数索引。', '用 DTO/schema 校验 JSON 结构，并为版本演进保留兼容策略。'], 'MySQL JSON Data Type；MySQL Generated Columns；MySQL Functional Indexes。'),
+  rule('DEFAULT-MYSQL-REPL-002', '生产迁移不得默认绕过 binlog、复制和只读保护', 95, 'critical', true, mysqlPaths, '生产迁移、数据修复和批处理脚本不得默认设置 sql_log_bin=0、关闭只读保护、跳过复制链路或绕过审计，除非有明确审批、补偿和恢复方案。', ['检查 SET sql_log_bin=0、super_read_only=0、read_only=0、跳过 binlog 或直接在从库写入。', '检查是否说明主备一致性、GTID、恢复链路、审批记录和执行窗口。'], '绕过 binlog 或只读保护会造成主备不一致、备份恢复链断裂、审计缺口和灾备切换后数据丢失。', ['默认让生产变更进入正常复制和审计链路。', '确需绕过时必须写明审批、影响范围、补偿 SQL、校验查询和恢复步骤。'], 'MySQL Binary Log；MySQL Replication；生产变更审计实践。'),
 ];
 
 const oracleRules = [
@@ -493,6 +620,40 @@ const oracleRules = [
   rule('DEFAULT-ORACLE-RECOVER-002', '破坏性数据修复必须说明 Flashback、备份和恢复窗口', 90, 'critical', true, oraclePaths, '删除、覆盖、批量修复、分区维护和历史数据迁移必须说明 Flashback 可用性、备份点、恢复窗口、验证 SQL 和失败处置。', ['检查高风险 DML/DDL 是否只有执行 SQL、缺少恢复说明。', '检查是否评估 undo 保留、Flashback Table/Query、RMAN 或导出备份可用性。'], '数据修复失败可能超出 Flashback/undo 窗口，导致无法快速恢复或只能人工补偿。', ['执行前确认恢复窗口和备份点。', '提供执行前后校验 SQL、影响行数和恢复步骤。'], 'Oracle Flashback；Oracle Backup and Recovery；生产数据修复实践。'),
 ];
 
+const postgresqlRules = [
+  rule('DEFAULT-POSTGRESQL-TXN-001', 'PostgreSQL 加锁事务不得长时间持锁或缺少等待策略', 70, 'high', false, postgresqlPaths, '事务中使用 SELECT FOR UPDATE、LOCK TABLE、 advisory lock 或高隔离级别时，必须控制锁范围、获取顺序、等待时间和外部调用。', ['检查事务内是否持锁调用 HTTP、MQ、文件、第三方接口或长耗时计算。', '检查 SELECT FOR UPDATE 是否有索引谓词、固定加锁顺序、lock_timeout 或 NOWAIT/SKIP LOCKED 策略。'], '长事务持锁会造成阻塞、死锁、连接耗尽和核心交易排队。', ['缩小事务范围，先完成外部调用或改用 outbox/afterCommit。', '为加锁查询补充索引、固定顺序、锁等待超时和死锁重试。'], 'PostgreSQL Explicit Locking；PostgreSQL SELECT FOR UPDATE；事务隔离实践。'),
+  rule('DEFAULT-POSTGRESQL-SEC-001', 'SECURITY DEFINER 函数必须固定 search_path 并最小授权', 95, 'critical', true, postgresqlPaths, 'SECURITY DEFINER 函数、过程和触发器以创建者权限运行，必须设置安全 search_path、限制可执行权限，并避免拼接执行不可信 SQL。', ['检查 SECURITY DEFINER 是否缺少 SET search_path 到可信 schema 和 pg_temp 控制。', '检查 EXECUTE 动态 SQL 是否绑定参数或使用 format %I/%L，并限制 GRANT EXECUTE 范围。'], '攻击者可通过对象名劫持、临时 schema 或动态 SQL 提权，绕过应用鉴权读取或篡改数据。', ['在函数定义中固定 search_path，并撤销 public 执行权限。', '动态对象名使用白名单和安全格式化，值参数使用绑定。'], 'PostgreSQL CREATE FUNCTION SECURITY DEFINER；PostgreSQL Function Security；OWASP Least Privilege。'),
+  rule('DEFAULT-POSTGRESQL-DDL-001', '热表 DDL 必须使用低锁分阶段方案', 95, 'critical', true, postgresqlPaths, 'PostgreSQL 热表索引、约束、字段默认值、NOT NULL 和类型变更必须评估锁级别，使用低锁、分阶段、可回滚方案。', ['检查 CREATE INDEX 是否应使用 CONCURRENTLY。', '检查新增约束是否可先 NOT VALID 再 VALIDATE，NOT NULL 是否先回填并验证。'], '普通 DDL 可能长时间阻塞读写或等待锁，导致核心接口不可用和发布卡死。', ['使用 CREATE INDEX CONCURRENTLY、NOT VALID/VALIDATE、分批回填、短事务和 lock_timeout。', '避免把 CONCURRENTLY 放在事务包装迁移中，并准备回滚或前滚脚本。'], 'PostgreSQL CREATE INDEX CONCURRENTLY；PostgreSQL ALTER TABLE；数据库在线变更实践。'),
+  rule('DEFAULT-POSTGRESQL-RLS-001', '多租户表的 RLS 和租户过滤不得被绕过', 90, 'critical', true, postgresqlPaths, '使用 PostgreSQL Row Level Security、租户 schema 或租户字段隔离时，不得关闭 RLS、绕过 policy，或新增缺少租户条件的查询路径。', ['检查 ALTER TABLE ... DISABLE ROW LEVEL SECURITY、BYPASSRLS、SECURITY DEFINER 是否绕过租户策略。', '检查 Mapper、Repository 和 SQL 是否缺少 tenant_id/org_id 等隔离条件。'], '租户隔离被绕过会造成跨租户数据泄露、越权修改和合规事故。', ['保持 RLS 开启并为管理任务限定专用账号、审计和审批。', '所有业务查询必须从可信上下文注入租户条件，并补充越权失败测试。'], 'PostgreSQL Row Security Policies；OWASP Broken Access Control；多租户数据隔离实践。'),
+  rule('DEFAULT-POSTGRESQL-IDX-001', 'PostgreSQL 索引变更必须匹配查询谓词、排序和统计信息', 60, 'high', false, postgresqlPaths, '新增核心查询或索引时，应确认 btree、GIN、GiST、BRIN、partial index、expression index 与真实谓词、排序和表规模匹配。', ['检查 ILIKE、函数表达式、JSONB、数组、范围类型和排序是否需要特定索引。', '检查 partial index 条件是否与 SQL 谓词完全兼容，并是否需要 ANALYZE 更新统计信息。'], '索引不匹配会让 PostgreSQL 选择顺序扫描、排序溢出或错误执行计划，导致生产慢查询。', ['用 EXPLAIN/ANALYZE 验证核心 SQL。', '为表达式、JSONB、范围或部分索引写明适用谓词、表规模和回退方案。'], 'PostgreSQL Indexes；PostgreSQL EXPLAIN；SQL 性能审查实践。'),
+  rule('DEFAULT-POSTGRESQL-JSON-001', 'JSONB 查询必须有结构约束、索引和兼容演进策略', 55, 'high', false, postgresqlPaths, 'JSONB 字段承载查询、权限、状态或唯一语义时，应声明结构校验、版本兼容和 GIN/表达式索引策略。', ['检查 ->、->>、@>、jsonb_path_query 等热点查询是否无索引。', '检查 JSONB 字段是否缺少 schema 校验、默认值、版本字段和历史数据兼容。'], '无约束 JSONB 会造成结构漂移、慢查询、类型比较错误和灰度期间字段缺失。', ['用应用 schema、CHECK、生成列或领域对象约束结构。', '热点路径建立 GIN 或表达式索引，并为版本演进保留兼容读取。'], 'PostgreSQL JSON Types；PostgreSQL GIN Indexes；数据契约治理实践。'),
+];
+
+const oceanbaseRules = [
+  rule('DEFAULT-OCEANBASE-COMPAT-001', 'OceanBase 必须声明并遵守 MySQL 或 Oracle 租户兼容模式', 95, 'critical', true, oceanbasePaths, 'OceanBase SQL、DDL、分页、序列、自增、函数、数据类型和驱动配置必须与目标租户的 MySQL 或 Oracle 兼容模式一致，不得混用两种方言。', ['检查同一迁移或 Mapper 是否混用 MySQL LIMIT、自增语法与 Oracle sequence、dual、ROWNUM、包过程等语法。', '检查连接串、租户、schema、DDL 和应用配置是否明确兼容模式。'], '方言混用会导致发布时 SQL 不兼容、分页错误、序列冲突、DDL 失败或运行时只在生产租户暴露。', ['在规则、迁移目录或配置中声明 OceanBase 租户兼容模式。', '按兼容模式拆分脚本和 Mapper，跨模式复用必须有适配层和测试。'], 'OceanBase MySQL/Oracle 兼容模式文档；OceanBase SQL 兼容性；数据库方言治理实践。'),
+  rule('DEFAULT-OCEANBASE-TXN-001', 'OceanBase 大批量写入和跨分区事务必须分批限速', 70, 'high', false, oceanbasePaths, 'OceanBase 大批量 DML、跨分区写入、跨租户操作和长事务必须评估事务大小、锁等待、复制延迟、超时和租户资源影响。', ['检查是否一次性更新或删除大量数据。', '检查跨分区 join/update、批量回填、历史归档是否有分批、限速、重试和观测指标。'], '分布式事务放大会造成锁等待、租户资源打满、复制延迟和核心业务抖动。', ['按主键、分区或时间窗口分批执行，并设置超时和限速。', '发布时观察租户 CPU/IO、锁等待、复制延迟和失败重试。'], 'OceanBase 事务文档；OceanBase 分布式执行；生产数据迁移实践。'),
+  rule('DEFAULT-OCEANBASE-DDL-001', 'OceanBase 热表 DDL、索引和分区变更必须确认在线能力与回滚', 95, 'critical', true, oceanbasePaths, 'OceanBase 热表 DDL、主键/唯一键、全局索引、分区和列类型变更必须说明在线能力、兼容模式、执行窗口、失败恢复和回滚策略。', ['检查 ALTER TABLE、CREATE INDEX、DROP INDEX、分区调整和唯一约束是否作用于热表。', '检查是否说明在线 DDL 支持范围、租户资源影响、执行窗口和回滚或前滚脚本。'], '错误 DDL 可能阻塞租户、破坏分区裁剪、造成复制延迟或让应用版本不兼容。', ['在预发租户验证 DDL 语法、锁行为和执行耗时。', '为热表变更准备分阶段方案、回滚/前滚脚本和发布观察指标。'], 'OceanBase DDL 文档；OceanBase 索引和分区文档；数据库在线变更实践。'),
+  rule('DEFAULT-OCEANBASE-PART-001', 'OceanBase 分区键、唯一键和全局索引必须匹配访问模式', 75, 'high', false, oceanbasePaths, 'OceanBase 分区表设计和变更必须确认分区键、主键、唯一键、全局/局部索引与核心查询、写入热点和数据生命周期匹配。', ['检查唯一约束是否与分区键和租户维度兼容。', '检查热点查询是否能分区裁剪，跨分区查询是否可接受。'], '分区设计不当会导致跨分区扫描、写热点、全局索引维护成本过高或唯一性语义错误。', ['按租户、时间或业务主键选择稳定分区策略。', '用执行计划验证核心查询能分区裁剪，并为归档清理准备校验和回滚。'], 'OceanBase 分区文档；OceanBase 全局索引；分布式数据库建模实践。'),
+  rule('DEFAULT-OCEANBASE-RESOURCE-001', 'OceanBase 租户资源、连接池和超时配置必须受控', 65, 'high', false, oceanbasePaths, 'OceanBase 应用连接池、批处理并发、SQL 超时和租户资源使用必须与租户规格匹配，避免单应用耗尽租户资源。', ['检查连接池最大连接、并发任务、查询超时、批量大小是否无上限。', '检查新增后台任务或报表是否说明租户 CPU、内存、IO 和连接影响。'], '资源配置失控会造成租户级雪崩，影响同租户所有业务。', ['设置连接池上限、SQL 超时、批处理限速和熔断。', '对高成本任务使用低峰窗口、队列和租户资源监控。'], 'OceanBase 租户资源管理；JDBC 连接池实践；SRE 容量治理。'),
+];
+
+const redisRules = [
+  rule('DEFAULT-REDIS-LOCK-001', 'Redis 分布式锁必须原子加锁、唯一令牌释放并设置超时', 95, 'critical', true, redisPaths, '生产分布式锁不得使用 SETNX 后单独 EXPIRE、无唯一 token、无过期时间或非原子释放。', ['检查 setnx + expire 是否分两步执行。', '检查释放锁是否校验唯一 token，并是否使用 Lua 或等价原子操作。'], '锁失效会导致重复扣款、重复发货、库存超卖；锁无法释放会造成业务死锁。', ['使用 SET key value NX PX 原子加锁，value 使用唯一随机 token。', '释放时用 Lua 校验 token 后删除，并设置合理过期、续期和失败降级策略。'], 'Redis Distributed Locks；Redlock 设计说明；分布式幂等实践。'),
+  rule('DEFAULT-REDIS-CACHE-001', '会话、权限、风控和幂等缓存必须有 TTL 与隔离维度', 95, 'critical', true, redisPaths, '会话、权限、风控、余额、幂等、验证码和租户数据缓存必须设置 TTL、隔离 key 和失效策略，不得永久或跨租户复用。', ['检查 Redis key 是否包含 tenantId、userId、业务场景等隔离维度。', '检查 set/hset 缓存是否缺少 expire、ttl、版本号或主动失效路径。'], '永久或跨租户缓存会造成越权、脏读、旧权限继续生效、重复请求绕过或资金状态错误。', ['把租户、用户、权限范围和业务类型纳入 key。', '设置 TTL、主动失效、版本号或双删策略，并为权限变更补充回归测试。'], 'Redis 缓存实践；OWASP Broken Access Control；企业缓存治理实践。'),
+  rule('DEFAULT-REDIS-CMD-001', '生产请求路径禁止 KEYS、FLUSH、无界 Lua 和无界批量删除', 95, 'critical', true, redisPaths, '生产请求、定时任务和管理接口不得执行 KEYS、FLUSHALL、FLUSHDB、无界 Lua、无界 scan 删除或大范围阻塞命令。', ['检查 KEYS、FLUSH*、EVAL、DEL 大集合、SMEMBERS 大集合和无 cursor/limit 的扫描。', '检查清理任务是否有限速、游标、批次、管理权限和审计。'], 'Redis 单线程被阻塞会导致全站缓存不可用；FLUSH 或无界删除会直接清空生产数据。', ['用 SCAN/SSCAN/HSCAN/ZSCAN 分批游标处理，并限制批次和速率。', '危险命令只允许受控管理通道、审批和审计，线上默认禁用。'], 'Redis KEYS/SCAN 文档；Redis Latency；生产运维安全实践。'),
+  rule('DEFAULT-REDIS-BIGKEY-001', 'Redis big key、hot key 和大集合必须有容量与拆分策略', 65, 'high', false, redisPaths, '新增 Redis key、hash、list、set、zset、stream 时，应控制单 key 大小、元素数量、热点访问和序列化体积。', ['检查单 key 是否可能无限增长或承载大对象。', '检查热点 key 是否被所有请求集中访问，是否有本地缓存、分片或降级策略。'], 'big key 会造成网络抖动、阻塞删除、持久化膨胀；hot key 会让 Redis 单点压力放大。', ['按业务维度拆 key、设置上限和 TTL。', '使用分片、本地缓存、异步删除 UNLINK 或后台清理，并监控 key 大小和访问热点。'], 'Redis Memory Optimization；Redis Latency；缓存容量治理实践。'),
+  rule('DEFAULT-REDIS-PUBSUB-001', 'Redis Pub/Sub 不得承载必须可靠送达的关键业务事件', 70, 'high', false, redisPaths, 'Redis Pub/Sub、普通通知和非持久化通道不保证离线可靠送达，关键业务事件必须使用可靠队列、Stream、MQ 或 outbox。', ['检查订单、支付、库存、审计、权限变更等事件是否仅 publish 后即认为成功。', '检查订阅者离线、重启、网络抖动时是否有补偿、重放或持久化记录。'], '关键事件丢失会导致状态不一致、审计缺失、缓存不失效或资金链路漏处理。', ['关键事件进入 RabbitMQ/Kafka/Redis Stream 或数据库 outbox。', 'Pub/Sub 只用于可丢弃通知，并为订阅失败设计补偿刷新。'], 'Redis Pub/Sub 文档；Redis Streams；Transactional Outbox。'),
+  rule('DEFAULT-REDIS-SERIAL-001', 'Redis 值序列化不得使用不可信反序列化或跨版本脆弱格式', 75, 'high', false, redisPaths, 'Redis 中存储跨服务共享或外部可影响的数据时，不得使用 Java 原生序列化、pickle 或缺少版本字段的脆弱二进制格式。', ['检查 JdkSerializationRedisSerializer、pickle、dill、Kryo 默认类名反序列化和无版本 JSON。', '检查缓存值是否可能被外部系统、脚本或旧版本写入。'], '不安全反序列化可能触发 RCE；格式无版本会导致灰度期间反序列化失败或读到错误字段。', ['使用 JSON/MessagePack/ProtoBuf 等受控格式，并记录 schema/version。', '对反序列化输入做类型白名单、长度限制和失败降级。'], 'OWASP Deserialization Cheat Sheet；Spring Data Redis Serialization；Python pickle 安全警告。'),
+];
+
+const rabbitmqRules = [
+  rule('DEFAULT-RABBITMQ-ACK-001', 'RabbitMQ 消费者必须事务成功后确认并保证幂等', 95, 'critical', true, rabbitmqPaths, 'RabbitMQ 消费端不得 autoAck 或在数据库事务成功前 ack；必须明确 ack/nack/requeue、死信队列和重复投递幂等策略。', ['检查 autoAck=true、AcknowledgeMode.NONE 或消费入口先 ack 后写库。', '检查重复 delivery、消费者重启、事务回滚后是否会重复写入或丢消息。'], '提前确认会造成消息丢失；缺少幂等会造成重复扣款、重复发货、重复通知或状态错乱。', ['使用手动确认，并在本地事务成功后 ack。', '用业务幂等键、唯一约束或状态机处理重复投递，失败进入 nack/DLQ/补偿。'], 'RabbitMQ Consumer Acknowledgements；Spring AMQP AcknowledgeMode；消息幂等实践。'),
+  rule('DEFAULT-RABBITMQ-DELIVERY-001', '关键消息必须配置持久化、publisher confirm 和 return/outbox', 95, 'critical', true, rabbitmqPaths, '订单、支付、库存、审计、权限等关键消息必须使用 durable exchange/queue、persistent message、publisher confirm/return 或可靠 outbox。', ['检查关键事件是否发送到非 durable queue/exchange 或 deliveryMode 非 persistent。', '检查 publisher confirm、returnCallback、mandatory、事务消息或 outbox 是否缺失。'], 'Broker 重启、网络抖动或路由失败时，消息可能静默丢失，导致业务状态不一致。', ['声明 durable exchange/queue，发送 persistent message。', '开启 publisher confirm/return，或使用数据库 outbox 和后台可靠投递。'], 'RabbitMQ Publisher Confirms；RabbitMQ Message Durability；Transactional Outbox。'),
+  rule('DEFAULT-RABBITMQ-RETRY-001', 'RabbitMQ 重试必须有上限、退避、DLQ 和毒消息隔离', 95, 'critical', true, rabbitmqPaths, '消费失败不得无限 requeue 或无退避重试；必须限制次数、延迟退避、隔离毒消息并保留可排查上下文。', ['检查 basicNack/basicReject requeue=true 是否在异常路径无限循环。', '检查重试计数、延迟队列、死信交换机、告警和人工处理通道是否存在。'], '单条毒消息会反复打满消费者和 Broker，造成队列堆积、CPU 飙升和业务雪崩。', ['使用 retry count、延迟重试、DLQ 和告警。', '不可恢复异常直接进入死信或人工处置，保留消息 ID、错误原因和 traceId。'], 'RabbitMQ Dead Letter Exchanges；Spring AMQP Retry；消息重试治理实践。'),
+  rule('DEFAULT-RABBITMQ-SCHEMA-001', '消息体必须有稳定 schema、版本和兼容策略', 65, 'high', false, rabbitmqPaths, '跨服务消息必须声明 eventType、version、messageId、occurredAt、traceId 和业务键，字段变更必须兼容旧消费者。', ['检查消息 DTO 是否删除、重命名或改变字段含义。', '检查消费者是否能处理未知字段、缺省字段和旧版本消息。'], '消息契约破坏会导致消费者反序列化失败、漏处理或错误解释业务状态。', ['使用版本化事件 schema，并保持向后兼容。', '新增字段提供默认值，破坏性变更使用新 eventType/version 并灰度发布。'], 'CloudEvents；AsyncAPI；事件驱动契约治理实践。'),
+  rule('DEFAULT-RABBITMQ-ORDER-001', '依赖顺序的消息必须声明分区键、单活消费或乱序补偿', 60, 'high', false, rabbitmqPaths, '订单状态、账户流水、库存变更等依赖顺序的消息必须说明路由键、分区、单活消费、幂等状态机或乱序补偿。', ['检查同一业务实体的事件是否可能进入多个队列、多个消费者并发或不同 routing key。', '检查消费者是否按版本号、状态机或时间戳拒绝旧事件覆盖新状态。'], '乱序消费会让订单回退、库存错误、账务状态覆盖或重复通知。', ['按业务实体路由到稳定分区或单活队列。', '消费者使用状态机、版本号和幂等表处理重复与乱序。'], 'RabbitMQ Routing；消息顺序与幂等实践；事件状态机设计。'),
+];
+
 const droolsRules = [
   rule('DEFAULT-DROOLS-DRL-001', 'DRL 规则名必须在同一 package 内唯一', 70, 'high', true, droolsPaths, '同一 Drools package 内不得出现会覆盖或破坏执行结果的重复规则名。', ['检查同 package 下 rule 名称是否重复。', '检查重命名是否保持审计、日志和回归用例可追踪。'], '重复规则名可能覆盖旧规则、导致构建失败或产生错误决策。', ['使用稳定且唯一的业务域规则名。', '重命名时同步测试、日志和规则说明。'], 'Drools DRL Language Reference；KIE rule assets。'),
   rule('DEFAULT-DROOLS-FLOW-001', '禁止无理由使用高 salience 或大范围 salience 梯度', 35, 'medium', false, ['**/*.drl'], 'salience 会改变 agenda 优先级，不应被当作隐藏业务流程。', ['检查 salience 大量魔法数。', '检查是否有业务说明和测试覆盖执行顺序。'], '过度依赖 salience 会导致规则新增后执行顺序漂移。', ['用显式 fact 状态、agenda group 或规则流表达流程。', '为优先级规则补充测试。'], 'Drools rule attributes salience。'),
@@ -526,6 +687,9 @@ const securityRules = [
   rule('DEFAULT-SEC-011', '登录、验证码、导出、搜索和高成本接口必须有限流和资源保护', 75, 'high', false, securityPaths, '认证、验证码、短信、导出、搜索、批量查询、规则执行和大文件接口应限制频率、并发、结果集和成本。', ['检查是否新增高成本接口但缺少 rate limit、captcha、配额、分页上限、队列或熔断。', '检查失败重试和批量导出是否可被单用户或单 IP 放大。'], '缺少滥用保护会导致撞库、短信轰炸、数据批量爬取、数据库压力或服务不可用。', ['增加按用户、租户、IP 和接口维度的限流与配额。', '高成本操作异步化、分页化，并记录审计和告警。'], 'OWASP API Security API4；OWASP Authentication Cheat Sheet；资源消耗防护实践。'),
   rule('DEFAULT-SEC-012', '依赖锁文件、镜像来源和安装脚本不得引入不可信供应链入口', 75, 'high', false, supplyChainPaths, '新增依赖、镜像、包管理配置和安装脚本时，应固定来源、版本、校验和锁文件，避免 git/http/tarball、不可信 registry、postinstall 后门和签名绕过。', ['检查 package、Maven、Gradle、pip、Dockerfile、.npmrc、私服地址和 lock 文件是否同步。', '检查是否新增远程脚本、postinstall、curl|sh、未固定版本或不可信镜像源。'], '供应链入口失控会引入恶意依赖、构建污染、后门脚本或不可复现发布。', ['固定版本和来源，同步锁文件或约束文件。', '避免安装期执行远程脚本，对私服、镜像和签名校验做变更说明。'], 'GitHub Dependency Review；SLSA；OWASP Software Supply Chain Security。'),
   rule('DEFAULT-SEC-013', '调试端点、Swagger、H2、Druid、GraphQL introspection 不得在生产无鉴权暴露', 95, 'critical', true, securityPaths, '生产或公网环境不得无鉴权暴露 Swagger、Actuator、H2 Console、Druid、GraphQL introspection、debug toolbar、admin 控制台等管理面。', ['检查配置是否开启管理端点、调试 UI、数据库控制台或 introspection。', '检查生产 profile、网关、容器和反向代理是否有鉴权、网络隔离和脱敏。'], '管理面暴露会泄露接口、配置、数据库、运行时和内部结构，可能进一步导致越权或 RCE。', ['生产关闭调试和管理 UI，必要端点加鉴权、内网隔离、最小暴露和审计。', '开发配置必须与生产 profile 明确隔离。'], 'OWASP Security Misconfiguration；Spring Boot Actuator Security；GraphQL Security。'),
+  rule('DEFAULT-FE-LINT-001', '前端核心安全和契约 lint 规则不得全局关闭或降级', 90, 'critical', true, [...vuePaths, 'eslint.config.js', '.eslintrc*', 'package.json'], 'ESLint、eslint-plugin-vue、typescript-eslint、Vue 安全规则和类型安全规则不得在项目级被关闭、降级或用空配置绕过。', ['检查 vue/no-v-html、no-unsafe-*、no-implied-eval、no-new-func、no-script-url、no-debugger 等核心规则是否被全局 off。', '检查配置变更是否只为局部误报做最小豁免，并有原因和期限。'], '全局关闭前端扫描会让 XSS、类型逃逸、危险 DOM sink 和调试代码绕过提交门禁。', ['恢复核心安全和契约规则。', '确需豁免时使用局部 disable，并写明原因、范围、负责人和移除期限。'], 'eslint-plugin-vue；typescript-eslint no-unsafe-*；Semgrep ignore governance。'),
+  rule('DEFAULT-SEC-SCAN-001', 'Semgrep 和安全扫描配置不得宽泛排除安全关键路径', 90, 'critical', true, [...supplyChainPaths, '.semgrepignore', '.semgrep.yml', '.semgrep.yaml', 'semgrep*.yml', 'semgrep*.yaml'], 'Semgrep、依赖扫描、Secret 扫描、SAST 或 CI 安全门禁不得用 .semgrepignore、exclude、severity 降级或 continue-on-error 宽泛排除前端、安全、后端和配置路径。', ['检查 .semgrepignore、semgrep.yml、CI workflow 是否排除 src、security、*.vue、*.ts、*.java、配置和迁移目录。', '检查高危规则集、严重级别阈值、扫描失败策略是否被删除或降级。'], '扫描被宽泛排除会让真实安全漏洞和凭据泄露绕过提交与 CI。', ['只对具体误报文件或规则做最小豁免。', '豁免必须写明原因、期限和替代人工验证，安全扫描失败默认阻断。'], 'Semgrep ignore 文档；OWASP Secure Code Review；CI 安全门禁实践。'),
+  rule('DEFAULT-FE-BUILD-001', '生产 sourcemap 和 debug bundle 不得公开敏感源码与环境信息', 75, 'high', false, [...vuePaths, 'vite.config.ts', 'vite.config.js', 'webpack.config.js', 'vue.config.js', 'nuxt.config.ts', 'nuxt.config.js'], '生产构建不得默认公开 sourcemap、debug bundle、内部路径、环境变量、接口地址和未脱敏源码。', ['检查 production sourcemap、devtool、debug、analyze、console 保留配置。', '检查 sourcemap 上传和公开访问是否区分私有错误平台与公网静态资源。'], '公开 sourcemap 会暴露源码、内部路径、接口结构和安全逻辑，降低攻击门槛。', ['生产默认关闭公开 sourcemap，或只上传到受控错误平台。', '构建产物中不得包含密钥、内部配置和调试入口。'], 'Vite build.sourcemap；Webpack devtool；OWASP Security Misconfiguration。'),
 ];
 
 const workflowRules = [
@@ -541,7 +705,15 @@ const workflowRules = [
   rule('DEFAULT-WORKFLOW-010', '高风险变更必须有开关、灰度、回滚和观测指标', 80, 'high', false, workflowPaths, '涉及权限、资金、库存、数据库迁移、规则引擎、批量任务和核心接口的变更，应说明开关、灰度范围、回滚或前滚方案和观测指标。', ['检查是否有 feature flag、灰度条件、回滚包、数据校验、告警指标和发布后观察项。', '检查不可逆变更是否有前滚修复和人工处置方案。'], '缺少发布治理会让高风险变更一次性影响全部用户，故障后难以及时止损。', ['增加开关、灰度批次、回滚/前滚步骤和关键指标。', '对数据迁移和规则变更保留审计、比对和回放能力。'], '渐进式交付实践；数据库迁移最佳实践；SRE 监控告警。'),
   rule('DEFAULT-WORKFLOW-011', '生成包、构建产物和临时文件不得误提交', 65, 'medium', false, workflowPaths, '提交中不应包含 dist、build、target、coverage、node_modules、*.tgz、*.zip、*.jar、*.map 等构建产物或临时文件，除非项目明确需要版本化。', ['检查打包文件、源码 map、覆盖率报告、临时目录、缓存文件和本地生成包是否进入提交。', '检查构建产物中是否夹带密钥、源码、依赖或环境配置。'], '误提交产物会污染仓库、扩大 diff、泄露源码或凭据，并让 npm/github 分发流程不可控。', ['把产物加入 .gitignore 或发布流程。', '确需提交时说明生成来源、更新命令和安全检查结果。'], 'Git ignore practices；GitHub secret scanning；npm publish practices。'),
   rule('DEFAULT-WORKFLOW-012', 'CI、测试、扫描和迁移校验不得被跳过或降级', 90, 'critical', true, workflowPaths, '主流程 CI、测试、代码扫描、依赖扫描、数据库迁移校验和发布门禁不得被删除、跳过、continue-on-error 或用临时命令短路。', ['检查 CI job、Maven/Gradle/npm 脚本、Makefile 和 shell 脚本是否加入 -DskipTests、maven.test.skip、--passWithNoTests、|| true、continue-on-error。', '检查质量门禁、覆盖率、安全扫描和迁移 dry-run 是否被删除或仅对主分支失效。'], '门禁被绕过会让缺陷、安全漏洞和迁移失败直接进入主干或生产发布。', ['恢复必跑测试、扫描和迁移校验。', '临时豁免必须有负责人、期限、风险说明和替代验证。'], 'CI/CD best practices；GitHub Actions；Maven/Gradle/npm test practices。'),
+  rule('DEFAULT-FE-LINT-002', 'eslint-disable、@ts-ignore 和 nosemgrep 必须局部且说明原因期限', 65, 'high', false, workflowPaths, '局部关闭 ESLint、TypeScript、Semgrep 或安全扫描规则时，必须限定到最小范围，并说明误报原因、负责人或移除期限。', ['检查 eslint-disable、@ts-ignore、@ts-expect-error、nosemgrep、noinspection 是否作用于整文件或整目录。', '检查是否缺少原因说明，或关闭后覆盖安全、权限、XSS、反序列化等关键规则。'], '长期豁免会让真实缺陷沉默，团队逐渐失去扫描可信度。', ['缩小到单行或单条规则，并写明原因和移除条件。', '能用类型、重构或规则配置解决的，不用注释关闭。'], 'typescript-eslint ban-ts-comment；Semgrep nosemgrep；代码扫描豁免治理实践。'),
+  rule('DEFAULT-VUE-TEST-001', '权限、路由和 store 组件测试必须覆盖拒绝态与不应调用 API', 70, 'high', false, workflowPaths, '涉及权限按钮、路由守卫、Pinia/Vuex store、菜单和管理操作的前端变更，应测试拒绝态、失败态和不应调用后端 API 的断言。', ['检查测试是否只覆盖 admin happy path。', '检查无权限、过期登录、租户不匹配和接口失败时是否断言按钮隐藏、跳转、错误状态和 API 未调用。'], '前端权限契约漂移会造成误授权、误拒绝或用户能通过界面触发危险操作。', ['补充无权限和失败态组件测试。', '使用 spy/mock 断言拒绝态不会调用高风险 API。'], 'Vue Test Utils；Pinia Testing；OWASP Broken Access Control 测试实践。'),
+  rule('DEFAULT-VUE-TEST-002', 'XSS、URL 和 HTML 渲染变更必须包含恶意输入测试', 75, 'high', false, workflowPaths, '涉及 v-html、URL、富文本、下载预览、postMessage、路由跳转和 HTML 渲染的变更，应包含恶意 HTML、协议绕过和脱敏泄露测试样例。', ['检查测试是否覆盖 <script>、事件属性、javascript:、data:、SVG、恶意文件名和外部跳转。', '检查 sanitizer、URL 白名单和脱敏逻辑是否有负例断言。'], '安全渲染变更没有恶意样例时，容易在后续优化中重新引入 XSS、开放重定向或敏感泄露。', ['补充恶意输入用例和负例断言。', '把 sanitizer 配置、URL 白名单和脱敏策略纳入回归测试。'], 'OWASP XSS Prevention Cheat Sheet；Vue Security Guide；前端安全测试实践。'),
 ];
+
+const sqlfluffRules = [
+  rule('DEFAULT-SQLFLUFF-CI-001', 'SQLFluff 必须固定 dialect/templater 且迁移 SQL 不得无审阅 autofix', 60, 'medium', false, sqlfluffPaths, 'SQLFluff 用于 SQL 质量门禁时必须明确 dialect、templater 和适用目录；迁移 SQL 不得在 CI 中无人工审阅自动 fix。', ['检查 .sqlfluff、pyproject、CI 是否缺少 dialect 或在多数据库项目中使用错误方言。', '检查 sqlfluff fix 是否直接改写 migrations、oracle/mysql/postgresql/oceanbase SQL 并自动提交或放行。'], '错误方言或无审阅 autofix 可能重写 Oracle/MySQL/PostgreSQL/OceanBase SQL 语义，造成迁移脚本不可执行或业务查询变化。', ['为不同数据库目录配置明确 dialect 和 templater。', 'CI 可 lint，但迁移 SQL 的 fix 必须人工审阅 diff 并通过数据库 dry-run。'], 'SQLFluff Rules and Dialects；数据库迁移审查实践；CI 质量门禁治理。'),
+];
+
 
 const RULES_GUIDE = `# GitPushReview 规则编写说明
 
@@ -878,9 +1050,14 @@ export const DEFAULT_DOCS = {
   'docs/default/python.md': renderDoc('Python 默认审核规则', pythonRules),
   'docs/default/mysql.md': renderDoc('MySQL 默认审核规则', mysqlRules),
   'docs/default/oracle.md': renderDoc('Oracle 默认审核规则', oracleRules),
+  'docs/default/postgresql.md': renderDoc('PostgreSQL 默认审核规则', postgresqlRules),
+  'docs/default/oceanbase.md': renderDoc('OceanBase 默认审核规则', oceanbaseRules),
+  'docs/default/redis.md': renderDoc('Redis 默认审核规则', redisRules),
+  'docs/default/rabbitmq.md': renderDoc('RabbitMQ 默认审核规则', rabbitmqRules),
   'docs/default/drools.md': renderDoc('Drools 默认审核规则', droolsRules),
   'docs/default/security.md': renderDoc('跨技术栈安全默认审核规则', securityRules),
   'docs/default/workflow.md': renderDoc('工程流程默认审核规则', workflowRules),
+  'docs/default/sqlfluff.md': renderDoc('SQLFluff 默认审核规则', sqlfluffRules),
   'docs/project/README.md': PROJECT_README,
   'docs/project/architecture.md': PROJECT_ARCHITECTURE_DOC,
   'docs/project/api-contract.md': PROJECT_API_CONTRACT_DOC,

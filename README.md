@@ -35,11 +35,17 @@ gitpushreview init
     default/
       java.md
       vue.md
+      python.md
       mysql.md
       oracle.md
+      postgresql.md
+      oceanbase.md
+      redis.md
+      rabbitmq.md
       drools.md
       security.md
       workflow.md
+      sqlfluff.md
     project/
       README.md
       architecture.md
@@ -233,11 +239,17 @@ weight: 1.0
 files:
   - ../docs/default/java.md
   - ../docs/default/vue.md
+  - ../docs/default/python.md
   - ../docs/default/mysql.md
   - ../docs/default/oracle.md
+  - ../docs/default/postgresql.md
+  - ../docs/default/oceanbase.md
+  - ../docs/default/redis.md
+  - ../docs/default/rabbitmq.md
   - ../docs/default/drools.md
   - ../docs/default/security.md
   - ../docs/default/workflow.md
+  - ../docs/default/sqlfluff.md
 ```
 
 ## Project Rules

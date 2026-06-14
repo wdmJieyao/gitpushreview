@@ -14,9 +14,14 @@ const expectedDefaultFiles = [
   '../docs/default/python.md',
   '../docs/default/mysql.md',
   '../docs/default/oracle.md',
+  '../docs/default/postgresql.md',
+  '../docs/default/oceanbase.md',
+  '../docs/default/redis.md',
+  '../docs/default/rabbitmq.md',
   '../docs/default/drools.md',
   '../docs/default/security.md',
   '../docs/default/workflow.md',
+  '../docs/default/sqlfluff.md',
 ];
 
 const expectedRuleIds = {
@@ -66,6 +71,12 @@ const expectedRuleIds = {
     'DEFAULT-JAVA-P3C-006',
     'DEFAULT-JAVA-P3C-007',
     'DEFAULT-JAVA-P3C-008',
+    'DEFAULT-JAVA-SEATA-001',
+    'DEFAULT-JAVA-SEATA-002',
+    'DEFAULT-JAVA-CLOUD-001',
+    'DEFAULT-JAVA-CLOUD-002',
+    'DEFAULT-JAVA-NULL-001',
+    'DEFAULT-JAVA-ERRPRONE-001',
     'DEFAULT-JAVA-MAINT-001',
   ],
   'docs/default/vue.md': [
@@ -90,6 +101,11 @@ const expectedRuleIds = {
     'DEFAULT-VUE-ASYNC-002',
     'DEFAULT-VUE-AUTH-001',
     'DEFAULT-VUE-TS-001',
+    'DEFAULT-VUE-CONTRACT-004',
+    'DEFAULT-VUE-CONTRACT-005',
+    'DEFAULT-VUE-CONTRACT-006',
+    'DEFAULT-VUE-ROUTER-001',
+    'DEFAULT-FE-TS-002',
   ],
   'docs/default/python.md': [
     'DEFAULT-PYTHON-SEC-001',
@@ -143,6 +159,7 @@ const expectedRuleIds = {
     'DEFAULT-MYSQL-BACKUP-001',
     'DEFAULT-MYSQL-PART-001',
     'DEFAULT-MYSQL-JSON-001',
+    'DEFAULT-MYSQL-REPL-002',
   ],
   'docs/default/oracle.md': [
     'DEFAULT-ORACLE-SEC-001',
@@ -176,6 +193,36 @@ const expectedRuleIds = {
     'DEFAULT-ORACLE-DBLINK-001',
     'DEFAULT-ORACLE-RECOVER-002',
   ],
+  'docs/default/postgresql.md': [
+    'DEFAULT-POSTGRESQL-TXN-001',
+    'DEFAULT-POSTGRESQL-SEC-001',
+    'DEFAULT-POSTGRESQL-DDL-001',
+    'DEFAULT-POSTGRESQL-RLS-001',
+    'DEFAULT-POSTGRESQL-IDX-001',
+    'DEFAULT-POSTGRESQL-JSON-001',
+  ],
+  'docs/default/oceanbase.md': [
+    'DEFAULT-OCEANBASE-COMPAT-001',
+    'DEFAULT-OCEANBASE-TXN-001',
+    'DEFAULT-OCEANBASE-DDL-001',
+    'DEFAULT-OCEANBASE-PART-001',
+    'DEFAULT-OCEANBASE-RESOURCE-001',
+  ],
+  'docs/default/redis.md': [
+    'DEFAULT-REDIS-LOCK-001',
+    'DEFAULT-REDIS-CACHE-001',
+    'DEFAULT-REDIS-CMD-001',
+    'DEFAULT-REDIS-BIGKEY-001',
+    'DEFAULT-REDIS-PUBSUB-001',
+    'DEFAULT-REDIS-SERIAL-001',
+  ],
+  'docs/default/rabbitmq.md': [
+    'DEFAULT-RABBITMQ-ACK-001',
+    'DEFAULT-RABBITMQ-DELIVERY-001',
+    'DEFAULT-RABBITMQ-RETRY-001',
+    'DEFAULT-RABBITMQ-SCHEMA-001',
+    'DEFAULT-RABBITMQ-ORDER-001',
+  ],
   'docs/default/drools.md': [
     'DEFAULT-DROOLS-DRL-001',
     'DEFAULT-DROOLS-FLOW-001',
@@ -208,6 +255,9 @@ const expectedRuleIds = {
     'DEFAULT-SEC-011',
     'DEFAULT-SEC-012',
     'DEFAULT-SEC-013',
+    'DEFAULT-FE-LINT-001',
+    'DEFAULT-SEC-SCAN-001',
+    'DEFAULT-FE-BUILD-001',
   ],
   'docs/default/workflow.md': [
     'DEFAULT-WORKFLOW-001',
@@ -222,6 +272,12 @@ const expectedRuleIds = {
     'DEFAULT-WORKFLOW-010',
     'DEFAULT-WORKFLOW-011',
     'DEFAULT-WORKFLOW-012',
+    'DEFAULT-FE-LINT-002',
+    'DEFAULT-VUE-TEST-001',
+    'DEFAULT-VUE-TEST-002',
+  ],
+  'docs/default/sqlfluff.md': [
+    'DEFAULT-SQLFLUFF-CI-001',
   ],
 };
 
@@ -282,7 +338,7 @@ test('every default rule is Chinese, structured, scoped, and parseable', () => {
     }
   }
 
-  assert.equal(allRuleIds.length, 187);
+  assert.equal(allRuleIds.length, 228);
   assert.equal(new Set(allRuleIds).size, allRuleIds.length, 'default rule ids should be unique');
 });
 
@@ -292,8 +348,13 @@ test('default path scopes include enterprise stack entry points', () => {
   const pythonRules = rulesForDefaultDoc('docs/default/python.md');
   const mysqlRules = rulesForDefaultDoc('docs/default/mysql.md');
   const oracleRules = rulesForDefaultDoc('docs/default/oracle.md');
+  const postgresqlRules = rulesForDefaultDoc('docs/default/postgresql.md');
+  const oceanbaseRules = rulesForDefaultDoc('docs/default/oceanbase.md');
+  const redisRules = rulesForDefaultDoc('docs/default/redis.md');
+  const rabbitmqRules = rulesForDefaultDoc('docs/default/rabbitmq.md');
   const droolsRules = rulesForDefaultDoc('docs/default/drools.md');
   const securityRules = rulesForDefaultDoc('docs/default/security.md');
+  const sqlfluffRules = rulesForDefaultDoc('docs/default/sqlfluff.md');
 
   assert.ok(javaRules.some((rule) => rule.paths.includes('**/*.java')));
   assert.ok(vueRules.some((rule) => rule.paths.includes('**/*.vue')));
@@ -304,9 +365,18 @@ test('default path scopes include enterprise stack entry points', () => {
   assert.ok(mysqlRules.some((rule) => rule.paths.includes('**/*Mapper*.xml')));
   assert.ok(oracleRules.some((rule) => rule.paths.includes('**/*.pkb')));
   assert.ok(oracleRules.some((rule) => rule.paths.includes('**/*Mapper*.java')));
+  assert.ok(postgresqlRules.some((rule) => rule.paths.includes('**/*postgres*.sql')));
+  assert.ok(postgresqlRules.some((rule) => rule.paths.includes('**/*Mapper*.xml')));
+  assert.ok(oceanbaseRules.some((rule) => rule.paths.includes('**/*oceanbase*.sql')));
+  assert.ok(oceanbaseRules.some((rule) => rule.paths.includes('**/*Mapper*.java')));
+  assert.ok(redisRules.some((rule) => rule.paths.includes('src/main/resources/**/*redis*.yml')));
+  assert.ok(redisRules.some((rule) => rule.paths.includes('**/*redis*.py')));
+  assert.ok(rabbitmqRules.some((rule) => rule.paths.includes('src/main/resources/**/*rabbit*.yaml')));
+  assert.ok(rabbitmqRules.some((rule) => rule.paths.includes('**/*Rabbit*.java')));
   assert.ok(droolsRules.some((rule) => rule.paths.includes('**/*.drl')));
   assert.ok(securityRules.some((rule) => rule.paths.includes('Dockerfile')));
   assert.ok(securityRules.some((rule) => rule.paths.includes('**/*.jsx')));
+  assert.ok(sqlfluffRules.some((rule) => rule.paths.includes('.sqlfluff')));
 });
 
 test('java default path scopes cover common Spring and MyBatis project layouts', () => {
@@ -340,20 +410,47 @@ test('java default path scopes cover common Spring and MyBatis project layouts',
   assert.equal(rulesById.get('DEFAULT-JAVA-LIB-007').hardBlock, true);
   assert.equal(rulesById.get('DEFAULT-JAVA-SPR-013').hardBlock, true);
   assert.equal(rulesById.get('DEFAULT-JAVA-JVM-004').hardBlock, true);
+  assert.equal(rulesById.get('DEFAULT-JAVA-SEATA-001').hardBlock, true);
+  assert.equal(rulesById.get('DEFAULT-JAVA-SEATA-002').hardBlock, true);
+  assert.equal(rulesById.get('DEFAULT-JAVA-CLOUD-001').hardBlock, false);
+  assert.equal(rulesById.get('DEFAULT-JAVA-CLOUD-002').hardBlock, true);
+  assert.equal(rulesById.get('DEFAULT-JAVA-NULL-001').hardBlock, false);
+  assert.equal(rulesById.get('DEFAULT-JAVA-ERRPRONE-001').hardBlock, true);
 });
 
 test('database runtime rules keep high-confidence hard blocks separate from review-only risks', () => {
   const mysqlRules = new Map(rulesForDefaultDoc('docs/default/mysql.md').map((rule) => [rule.id, rule]));
   const oracleRules = new Map(rulesForDefaultDoc('docs/default/oracle.md').map((rule) => [rule.id, rule]));
+  const postgresqlRules = new Map(rulesForDefaultDoc('docs/default/postgresql.md').map((rule) => [rule.id, rule]));
+  const oceanbaseRules = new Map(rulesForDefaultDoc('docs/default/oceanbase.md').map((rule) => [rule.id, rule]));
+  const redisRules = new Map(rulesForDefaultDoc('docs/default/redis.md').map((rule) => [rule.id, rule]));
+  const rabbitmqRules = new Map(rulesForDefaultDoc('docs/default/rabbitmq.md').map((rule) => [rule.id, rule]));
   const droolsRules = new Map(rulesForDefaultDoc('docs/default/drools.md').map((rule) => [rule.id, rule]));
 
   assert.equal(mysqlRules.get('DEFAULT-MYSQL-BACKUP-001').hardBlock, true);
   assert.equal(mysqlRules.get('DEFAULT-MYSQL-PLAN-001').hardBlock, false);
   assert.equal(mysqlRules.get('DEFAULT-MYSQL-REPL-001').hardBlock, false);
+  assert.equal(mysqlRules.get('DEFAULT-MYSQL-REPL-002').hardBlock, true);
 
   assert.equal(oracleRules.get('DEFAULT-ORACLE-DBLINK-001').hardBlock, false);
   assert.equal(oracleRules.get('DEFAULT-ORACLE-PART-001').hardBlock, true);
   assert.equal(oracleRules.get('DEFAULT-ORACLE-RECOVER-002').hardBlock, true);
+
+  assert.equal(postgresqlRules.get('DEFAULT-POSTGRESQL-TXN-001').hardBlock, false);
+  assert.equal(postgresqlRules.get('DEFAULT-POSTGRESQL-SEC-001').hardBlock, true);
+  assert.equal(postgresqlRules.get('DEFAULT-POSTGRESQL-DDL-001').hardBlock, true);
+
+  assert.equal(oceanbaseRules.get('DEFAULT-OCEANBASE-COMPAT-001').hardBlock, true);
+  assert.equal(oceanbaseRules.get('DEFAULT-OCEANBASE-TXN-001').hardBlock, false);
+  assert.equal(oceanbaseRules.get('DEFAULT-OCEANBASE-DDL-001').hardBlock, true);
+
+  assert.equal(redisRules.get('DEFAULT-REDIS-LOCK-001').hardBlock, true);
+  assert.equal(redisRules.get('DEFAULT-REDIS-CACHE-001').hardBlock, true);
+  assert.equal(redisRules.get('DEFAULT-REDIS-CMD-001').hardBlock, true);
+
+  assert.equal(rabbitmqRules.get('DEFAULT-RABBITMQ-ACK-001').hardBlock, true);
+  assert.equal(rabbitmqRules.get('DEFAULT-RABBITMQ-DELIVERY-001').hardBlock, true);
+  assert.equal(rabbitmqRules.get('DEFAULT-RABBITMQ-RETRY-001').hardBlock, true);
 
   assert.equal(droolsRules.get('DEFAULT-DROOLS-SEC-001').hardBlock, true);
   assert.equal(droolsRules.get('DEFAULT-DROOLS-TIME-001').hardBlock, false);
@@ -364,6 +461,7 @@ test('thin-stack additions keep hard blocks limited to high-confidence severe ri
   const pythonRules = new Map(rulesForDefaultDoc('docs/default/python.md').map((rule) => [rule.id, rule]));
   const securityRules = new Map(rulesForDefaultDoc('docs/default/security.md').map((rule) => [rule.id, rule]));
   const workflowRules = new Map(rulesForDefaultDoc('docs/default/workflow.md').map((rule) => [rule.id, rule]));
+  const sqlfluffRules = new Map(rulesForDefaultDoc('docs/default/sqlfluff.md').map((rule) => [rule.id, rule]));
 
   assert.equal(vueRules.get('DEFAULT-VUE-SEC-008').hardBlock, false);
   assert.equal(vueRules.get('DEFAULT-VUE-SEC-009').hardBlock, false);
@@ -381,11 +479,19 @@ test('thin-stack additions keep hard blocks limited to high-confidence severe ri
   assert.equal(securityRules.get('DEFAULT-SEC-011').hardBlock, false);
   assert.equal(securityRules.get('DEFAULT-SEC-012').hardBlock, false);
   assert.equal(securityRules.get('DEFAULT-SEC-013').hardBlock, true);
+  assert.equal(securityRules.get('DEFAULT-FE-LINT-001').hardBlock, true);
+  assert.equal(securityRules.get('DEFAULT-SEC-SCAN-001').hardBlock, true);
+  assert.equal(securityRules.get('DEFAULT-FE-BUILD-001').hardBlock, false);
 
   assert.equal(workflowRules.get('DEFAULT-WORKFLOW-009').hardBlock, false);
   assert.equal(workflowRules.get('DEFAULT-WORKFLOW-010').hardBlock, false);
   assert.equal(workflowRules.get('DEFAULT-WORKFLOW-011').hardBlock, false);
   assert.equal(workflowRules.get('DEFAULT-WORKFLOW-012').hardBlock, true);
+  assert.equal(workflowRules.get('DEFAULT-FE-LINT-002').hardBlock, false);
+  assert.equal(workflowRules.get('DEFAULT-VUE-TEST-001').hardBlock, false);
+  assert.equal(workflowRules.get('DEFAULT-VUE-TEST-002').hardBlock, false);
+
+  assert.equal(sqlfluffRules.get('DEFAULT-SQLFLUFF-CI-001').hardBlock, false);
 });
 
 test('initialized workspace can load all default rules end-to-end', async () => {
@@ -397,5 +503,5 @@ test('initialized workspace can load all default rules end-to-end', async () => 
   assert.ok(source, 'initialized workspace should include Default Rules source');
 
   const rules = loadMarkdownRules({ workspaceRoot, source });
-  assert.equal(rules.length, 187);
+  assert.equal(rules.length, 228);
 });

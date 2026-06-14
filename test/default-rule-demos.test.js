@@ -418,10 +418,135 @@ const demoSamples = [
     expectedRules: ['DEFAULT-DROOLS-RELEASE-001', 'DEFAULT-DROOLS-SEC-001'],
   },
   {
-    name: 'Drools rule depends on system time for entitlement boundary',
-    file: 'rules/entitlement/expire.drl',
-    snippet: 'eval(LocalDateTime.now().isAfter($contract.getExpireAt()))',
-    expectedRules: ['DEFAULT-DROOLS-TIME-001'],
+    name: 'Seata TCC branch catches failure and misses rollback contract',
+    file: 'src/main/java/com/acme/payment/PaymentService.java',
+    snippet: `
+      @GlobalTransactional
+      public void pay() {
+        try { accountTccAction.prepare(null, orderId); } catch (Exception ignored) { return; }
+      }
+      public boolean rollback(BusinessActionContext ctx) { return true; }
+    `,
+    expectedRules: ['DEFAULT-JAVA-SEATA-001', 'DEFAULT-JAVA-SEATA-002'],
+  },
+  {
+    name: 'Spring Cloud client trusts user header and retries non-idempotent call',
+    file: 'src/main/java/com/acme/client/OrderFeignClient.java',
+    snippet: `
+      @RequestHeader("X-User-Id") String userId;
+      retryTemplate.execute(ctx -> restTemplate.postForObject(url, order, Void.class));
+    `,
+    expectedRules: ['DEFAULT-JAVA-CLOUD-001', 'DEFAULT-JAVA-CLOUD-002'],
+  },
+  {
+    name: 'Java nullable map value and async failure are ignored',
+    file: 'src/main/java/com/acme/async/AsyncOrderService.java',
+    snippet: `
+      String name = names.get(id).trim();
+      CompletableFuture.runAsync(() -> send()).exceptionally(ex -> null);
+      catch (InterruptedException ex) { log.warn("ignored"); }
+    `,
+    expectedRules: ['DEFAULT-JAVA-NULL-001', 'DEFAULT-JAVA-ERRPRONE-001'],
+  },
+  {
+    name: 'PostgreSQL migration uses security definer and blocking hot-table DDL',
+    file: 'db/postgresql/V20260619__admin_function.sql',
+    snippet: `
+      create function admin_run(sql text) returns void security definer language plpgsql as $ begin execute sql; end $;
+      create index idx_order_status on orders(status);
+    `,
+    expectedRules: ['DEFAULT-POSTGRESQL-SEC-001', 'DEFAULT-POSTGRESQL-DDL-001'],
+  },
+  {
+    name: 'PostgreSQL mapper locks rows without bounded wait and tenant policy',
+    file: 'src/main/resources/mapper/PostgresOrderMapper.xml',
+    snippet: 'select * from orders where status = #{status} for update; alter table orders disable row level security;',
+    expectedRules: ['DEFAULT-POSTGRESQL-TXN-001', 'DEFAULT-POSTGRESQL-RLS-001'],
+  },
+  {
+    name: 'OceanBase migration mixes tenant dialect and risky online DDL',
+    file: 'db/oceanbase/V20260620__orders.sql',
+    snippet: 'create tenant app_tenant; select seq_order.nextval from dual; alter table orders add global index g_idx_user(user_id);',
+    expectedRules: ['DEFAULT-OCEANBASE-COMPAT-001', 'DEFAULT-OCEANBASE-DDL-001'],
+  },
+  {
+    name: 'Redis distributed lock uses setnx expire split and broad key scan',
+    file: 'src/main/java/com/acme/cache/RedisLockService.java',
+    snippet: `
+      redis.setnx(key, "1");
+      redis.expire(key, 30);
+      redis.keys("order:*").forEach(redis::del);
+    `,
+    expectedRules: ['DEFAULT-REDIS-LOCK-001', 'DEFAULT-REDIS-CMD-001'],
+  },
+  {
+    name: 'Redis cache stores permanent cross-tenant permissions',
+    file: 'src/app/redis/permissions_cache.py',
+    snippet: 'redis.set("perm:" + user_id, json.dumps(roles)); redis.publish("pay", pickle.dumps(event))',
+    expectedRules: ['DEFAULT-REDIS-CACHE-001', 'DEFAULT-REDIS-SERIAL-001'],
+  },
+  {
+    name: 'RabbitMQ listener auto-acks and infinitely requeues poison messages',
+    file: 'src/main/java/com/acme/mq/PaymentListener.java',
+    snippet: `
+      @RabbitListener(queues = "pay")
+      public void on(Message message) { channel.basicAck(tag, false); throw new RuntimeException(); }
+      channel.basicNack(tag, false, true);
+    `,
+    expectedRules: ['DEFAULT-RABBITMQ-ACK-001', 'DEFAULT-RABBITMQ-RETRY-001'],
+  },
+  {
+    name: 'RabbitMQ publisher sends critical event without confirm or durable delivery',
+    file: 'src/main/resources/rabbitmq/application-rabbit.yaml',
+    snippet: `
+      spring.rabbitmq.publisher-confirm-type: none
+      queue.durable: false
+      deliveryMode: NON_PERSISTENT
+    `,
+    expectedRules: ['DEFAULT-RABBITMQ-DELIVERY-001'],
+  },
+  {
+    name: 'Vue setup registers watch after await and loses cleanup',
+    file: 'src/views/User.vue',
+    snippet: `
+      await loadUser();
+      watch(route, () => fetchUser());
+      window.addEventListener("resize", onResize);
+    `,
+    expectedRules: ['DEFAULT-VUE-CONTRACT-004', 'DEFAULT-VUE-CONTRACT-005'],
+  },
+  {
+    name: 'Vue router input and API response are trusted without schema',
+    file: 'src/api/user.ts',
+    snippet: `
+      const id = route.query.id as string;
+      const user = await res.json() as User;
+    `,
+    expectedRules: ['DEFAULT-VUE-ROUTER-001', 'DEFAULT-FE-TS-002'],
+  },
+  {
+    name: 'Frontend lint and scan gates are globally disabled',
+    file: 'eslint.config.js',
+    snippet: 'rules: { "vue/no-v-html": "off", "@typescript-eslint/no-unsafe-assignment": "off" }',
+    expectedRules: ['DEFAULT-FE-LINT-001'],
+  },
+  {
+    name: 'Semgrep ignores frontend and security paths',
+    file: '.semgrepignore',
+    snippet: 'src/**/*.vue\nsecurity/**\n**/*.ts',
+    expectedRules: ['DEFAULT-SEC-SCAN-001'],
+  },
+  {
+    name: 'Production build exposes source maps',
+    file: 'vite.config.ts',
+    snippet: 'export default defineConfig({ build: { sourcemap: true } })',
+    expectedRules: ['DEFAULT-FE-BUILD-001'],
+  },
+  {
+    name: 'SQLFluff CI runs without dialect and autofixes migrations',
+    file: '.github/workflows/sqlfluff.yml',
+    snippet: 'sqlfluff fix migrations --force',
+    expectedRules: ['DEFAULT-SQLFLUFF-CI-001'],
   },
 ];
 

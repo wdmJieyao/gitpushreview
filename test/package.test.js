@@ -24,3 +24,26 @@ test('README explains usage and scoring model', () => {
   assert.match(readme, /hardBlockScore/);
   assert.match(readme, /hardBlock: true/);
 });
+
+test('README documents every built-in default rule file', () => {
+  const readme = fs.readFileSync('README.md', 'utf8');
+  const defaultFiles = [
+    'java.md',
+    'vue.md',
+    'python.md',
+    'mysql.md',
+    'oracle.md',
+    'postgresql.md',
+    'oceanbase.md',
+    'redis.md',
+    'rabbitmq.md',
+    'drools.md',
+    'security.md',
+    'workflow.md',
+    'sqlfluff.md',
+  ];
+
+  for (const file of defaultFiles) {
+    assert.match(readme, new RegExp(file.replace('.', '\\.') ));
+  }
+});
