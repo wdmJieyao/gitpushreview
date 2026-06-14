@@ -122,53 +122,66 @@ export GITPUSHREVIEW_API_KEY=...
 ## 系统流程图
 
 ```text
-开发者 git commit
+开发者 git commit / gitpushreview check --staged
       |
       v
-读取 staged diff 和 staged blob
+读取 Git 暂存区
+  - staged diff：只看本次提交的变更
+  - staged blob：读取暂存内容，不读取未暂存工作区内容
       |
       v
-静态能力识别
-  - 文件类型: java/vue/python/sql/yml/drl...
-  - 内容信号: MyBatis/Kafka/RabbitMQ/Redis/Drools/SQL token...
+加载审核上下文
+  - BDR：vendor/bdr 动态读取，可独立覆盖升级
+  - 规则索引：agent/rules-index.md
+  - Markdown 规则：docs/default + docs/project + docs/diy
+  - 策略阈值：agent/policy.md
       |
       v
-Project Capability Routing
-  - 生成 capabilities
-  - 根据 paths + capabilities 过滤规则
-  - unknown 文件只进入 common.unknown-limited 公共兜底
+静态能力识别 FileRouteContext
+  - 路径/扩展名：java/vue/python/sql/yml/xml/drl...
+  - 内容信号：MyBatis、SQL token、Kafka、RabbitMQ、Redis、Drools...
+  - 输出 capabilities、labels、dialectCandidates、unknownLimited
       |
       v
-静态证据提取
-  - SQL 列值数量不一致
-  - Java 内嵌 SQL
-  - MQ 高风险配置
-  - 这些只作为证据线索，不直接裁决
+规则驱动候选过滤 Rule Router
+  - 普通已识别文件：必须满足 paths + capabilities
+  - 旧规则：没有 capabilities 时按 paths 兼容
+  - common 规则：可进入 common.core / common.unknown-limited
+  - unknown 文件：默认只进公共兜底，不全量扇出
+  - unknown 扩展：只有 allowUnknownExpansion=true 且 signalPaths/signalContent 命中才进入候选
+      |
+      v
+静态证据提取 Rule Evidence
+  - evidencePatterns 从候选规则中读取
+  - 只扫描该规则实际命中的文件，避免跨文件串线
+  - 生成 static-evidence，score=0，blocking=none
+  - 只作为 AI 复审线索，不直接决定通过或拦截
       |
       v
 组装 AI 复审上下文
   - BDR 上下文
-  - default/project/diy 候选规则
-  - 静态路由和静态证据
+  - 候选 Markdown 规则正文和元数据
+  - 路由原因：ruleId -> file:reason，例如 signal-content
+  - 静态证据线索
   - staged diff
       |
       v
-AI 复审并返回 findings
-  - ruleId / title / severity
-  - score / weightedScore
-  - blocking: none | soft | hard
-  - evidence / suggestion
+AI 最终复审并返回 findings
+  - 结合 BDR、default/project/diy 规则和 diff 判断
+  - 给出 ruleId、中文证据、中文建议
+  - 给出 score / weightedScore / blocking
       |
       v
-计分和拦截
-  - PASS: 允许提交
-  - SOFT_BLOCK: 用户确认后可继续
-  - HARD_BLOCK: 必须整改
+统一计分和拦截
+  - totalScore = findings.weightedScore 之和
+  - PASS：允许提交
+  - SOFT_BLOCK：用户确认后可继续
+  - HARD_BLOCK：必须整改
 ```
 
 ## 静态路由做什么
 
-静态层不是最终裁判。它只决定“哪些规则应该交给 AI 看”，避免把所有规则都塞给模型。
+静态层不是最终裁判。它只负责把文件路由到合理的候选规则，并把可解释证据交给 AI，避免把所有规则都塞给模型，也避免因为静态误判直接拦截提交。
 
 例子：
 
@@ -177,7 +190,7 @@ AI 复审并返回 findings
 - Kafka 生产配置：进入 `common.config`、`middleware.mq`、`middleware.mq.kafka`。
 - 无法识别的文件：进入 `common.unknown-limited`，不会扇出 MySQL、Oracle、Drools、Redis、RabbitMQ 等专有规则。
 
-规则可以声明能力域，也可以声明路由信号和静态证据模式：
+规则可以声明能力域，也可以声明路由信号和静态证据模式。路由信号只用于“是否应该交给 AI 看”，证据模式只用于“给 AI 哪些线索”：
 
 ```yaml
 paths:
