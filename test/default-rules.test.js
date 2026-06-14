@@ -11,6 +11,7 @@ import { parseMarkdownRules } from '../src/rules/markdown.js';
 const expectedDefaultFiles = [
   '../docs/default/java.md',
   '../docs/default/vue.md',
+  '../docs/default/python.md',
   '../docs/default/mysql.md',
   '../docs/default/oracle.md',
   '../docs/default/drools.md',
@@ -24,6 +25,10 @@ const expectedRuleIds = {
     'DEFAULT-JAVA-SEC-002',
     'DEFAULT-JAVA-SEC-003',
     'DEFAULT-JAVA-SEC-004',
+    'DEFAULT-JAVA-SEC-005',
+    'DEFAULT-JAVA-SEC-006',
+    'DEFAULT-JAVA-SEC-007',
+    'DEFAULT-JAVA-SEC-008',
     'DEFAULT-JAVA-SPR-001',
     'DEFAULT-JAVA-SPR-002',
     'DEFAULT-JAVA-SPR-003',
@@ -43,6 +48,8 @@ const expectedRuleIds = {
     'DEFAULT-VUE-SEC-003',
     'DEFAULT-VUE-SEC-004',
     'DEFAULT-VUE-SEC-005',
+    'DEFAULT-VUE-SEC-006',
+    'DEFAULT-VUE-SEC-007',
     'DEFAULT-VUE-CONTRACT-001',
     'DEFAULT-VUE-CONTRACT-002',
     'DEFAULT-VUE-CONTRACT-003',
@@ -50,9 +57,22 @@ const expectedRuleIds = {
     'DEFAULT-VUE-PERF-002',
     'DEFAULT-VUE-PERF-003',
     'DEFAULT-VUE-PERF-004',
+    'DEFAULT-VUE-PERF-005',
     'DEFAULT-VUE-ASYNC-001',
     'DEFAULT-VUE-ASYNC-002',
     'DEFAULT-VUE-TS-001',
+  ],
+  'docs/default/python.md': [
+    'DEFAULT-PYTHON-SEC-001',
+    'DEFAULT-PYTHON-SEC-002',
+    'DEFAULT-PYTHON-SEC-003',
+    'DEFAULT-PYTHON-SEC-004',
+    'DEFAULT-PYTHON-SEC-005',
+    'DEFAULT-PYTHON-DATA-001',
+    'DEFAULT-PYTHON-TIME-001',
+    'DEFAULT-PYTHON-IO-001',
+    'DEFAULT-PYTHON-ASYNC-001',
+    'DEFAULT-PYTHON-MAINT-001',
   ],
   'docs/default/mysql.md': [
     'DEFAULT-MYSQL-SEC-001',
@@ -78,6 +98,11 @@ const expectedRuleIds = {
     'DEFAULT-MYSQL-QUERY-002',
     'DEFAULT-MYSQL-NULL-001',
     'DEFAULT-MYSQL-CHARSET-001',
+    'DEFAULT-MYSQL-PRIV-001',
+    'DEFAULT-MYSQL-CONS-002',
+    'DEFAULT-MYSQL-DML-003',
+    'DEFAULT-MYSQL-SEQ-001',
+    'DEFAULT-MYSQL-QUERY-003',
   ],
   'docs/default/oracle.md': [
     'DEFAULT-ORACLE-SEC-001',
@@ -100,6 +125,11 @@ const expectedRuleIds = {
     'DEFAULT-ORACLE-TXN-003',
     'DEFAULT-ORACLE-TRG-001',
     'DEFAULT-ORACLE-PRIV-001',
+    'DEFAULT-ORACLE-SEC-003',
+    'DEFAULT-ORACLE-CONS-002',
+    'DEFAULT-ORACLE-MERGE-001',
+    'DEFAULT-ORACLE-QUERY-001',
+    'DEFAULT-ORACLE-RECOVER-001',
   ],
   'docs/default/drools.md': [
     'DEFAULT-DROOLS-DRL-001',
@@ -192,13 +222,14 @@ test('every default rule is Chinese, structured, scoped, and parseable', () => {
     }
   }
 
-  assert.equal(allRuleIds.length, 100);
+  assert.equal(allRuleIds.length, 127);
   assert.equal(new Set(allRuleIds).size, allRuleIds.length, 'default rule ids should be unique');
 });
 
 test('default path scopes include enterprise stack entry points', () => {
   const javaRules = rulesForDefaultDoc('docs/default/java.md');
   const vueRules = rulesForDefaultDoc('docs/default/vue.md');
+  const pythonRules = rulesForDefaultDoc('docs/default/python.md');
   const mysqlRules = rulesForDefaultDoc('docs/default/mysql.md');
   const oracleRules = rulesForDefaultDoc('docs/default/oracle.md');
   const droolsRules = rulesForDefaultDoc('docs/default/drools.md');
@@ -207,6 +238,8 @@ test('default path scopes include enterprise stack entry points', () => {
   assert.ok(javaRules.some((rule) => rule.paths.includes('**/*.java')));
   assert.ok(vueRules.some((rule) => rule.paths.includes('**/*.vue')));
   assert.ok(vueRules.some((rule) => rule.paths.includes('**/*.tsx')));
+  assert.ok(pythonRules.some((rule) => rule.paths.includes('**/*.py')));
+  assert.ok(pythonRules.some((rule) => rule.paths.includes('**/*.pyw')));
   assert.ok(mysqlRules.some((rule) => rule.paths.includes('**/*Mapper*.java')));
   assert.ok(mysqlRules.some((rule) => rule.paths.includes('**/*Mapper*.xml')));
   assert.ok(oracleRules.some((rule) => rule.paths.includes('**/*.pkb')));
@@ -225,5 +258,5 @@ test('initialized workspace can load all default rules end-to-end', async () => 
   assert.ok(source, 'initialized workspace should include Default Rules source');
 
   const rules = loadMarkdownRules({ workspaceRoot, source });
-  assert.equal(rules.length, 100);
+  assert.equal(rules.length, 127);
 });

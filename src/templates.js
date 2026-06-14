@@ -42,6 +42,7 @@ weight: 1.0
 files:
   - ../docs/default/java.md
   - ../docs/default/vue.md
+  - ../docs/default/python.md
   - ../docs/default/mysql.md
   - ../docs/default/oracle.md
   - ../docs/default/drools.md
@@ -89,11 +90,15 @@ const springWebPaths = ['**/*Controller.java', '**/*Resource.java', '**/*Securit
 const springServicePaths = ['**/*Service.java', '**/*Repository.java', '**/*Mapper.java', '**/*DAO.java', '**/*Dao.java', '**/*.java'];
 const springConfigPaths = ['**/*.java', 'src/main/resources/**/*.{yml,yaml,properties}', 'pom.xml', 'build.gradle*'];
 const vuePaths = ['**/*.vue', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'];
+const pythonPaths = ['**/*.py', '**/*.pyw'];
 const mysqlPaths = [
-  '**/*.sql',
-  'migrations/**',
-  'db/**',
-  'schema/**',
+  'db/mysql/**',
+  'database/mysql/**',
+  'schema/mysql/**',
+  'migrations/mysql/**',
+  'mysql/**',
+  '**/*.mysql.sql',
+  '**/*mysql*.sql',
   '**/*Mapper*.xml',
   '**/*Mapper*.java',
   '**/*Repository*.java',
@@ -102,7 +107,24 @@ const mysqlPaths = [
   '**/*Repository*',
   '**/*DAO*',
 ];
-const oraclePaths = [...mysqlPaths, '**/*.pks', '**/*.pkb'];
+const oraclePaths = [
+  'db/oracle/**',
+  'database/oracle/**',
+  'schema/oracle/**',
+  'migrations/oracle/**',
+  'oracle/**',
+  '**/*.oracle.sql',
+  '**/*oracle*.sql',
+  '**/*.pks',
+  '**/*.pkb',
+  '**/*Mapper*.xml',
+  '**/*Mapper*.java',
+  '**/*Repository*.java',
+  '**/*DAO*.java',
+  '**/*Dao*.java',
+  '**/*Repository*',
+  '**/*DAO*',
+];
 const droolsPaths = [
   '**/*.drl',
   '**/rules/**/*.drl',
@@ -188,6 +210,10 @@ const javaRules = [
   rule('DEFAULT-JAVA-SEC-002', '禁止拼接 SQL、JPQL、LDAP 或命令执行参数', 95, 'critical', true, javaPaths, '不得把用户输入、请求参数、外部配置或可变字段直接拼接进 SQL、JPQL、LDAP 查询或系统命令。', ['检查字符串拼接、String.format、模板表达式和 QueryBuilder 是否混入未绑定参数。', '检查 MyBatis `${}`、JPA 动态查询和 Runtime.exec/ProcessBuilder 参数是否有白名单或绑定。'], '注入漏洞可能造成越权读取、任意命令执行、数据篡改或服务接管。', ['改用参数化查询、绑定变量、命令参数数组和白名单映射。', '动态标识符必须通过固定枚举映射，不允许透传用户输入。'], 'OWASP SQL Injection Prevention Cheat Sheet；CWE-89；阿里巴巴 Java 开发手册。'),
   rule('DEFAULT-JAVA-SEC-003', '禁止反序列化不可信输入或缺少过滤', 90, 'critical', true, javaPaths, '不得对来自请求、消息队列、缓存、文件上传或外部系统的数据直接执行 Java 原生反序列化。', ['检查 ObjectInputStream、readObject、XMLDecoder、第三方反序列化入口是否处理不可信输入。', '检查是否配置 JEP 290 过滤、类型白名单或安全替代格式。'], '不可信反序列化可能触发 RCE、任意对象构造或权限绕过。', ['改用 JSON 等受控格式并做 schema 校验。', '必须保留反序列化时配置类型白名单和对象过滤器。'], 'OWASP Deserialization Cheat Sheet；Oracle Serialization Filtering。'),
   rule('DEFAULT-JAVA-SEC-004', 'Web 入口必须保持认证和授权边界', 95, 'critical', true, springWebPaths, 'Controller、Resource 和 Security 配置不得移除认证、授权、租户归属或角色校验。', ['检查新增路由是否继承已有安全策略。', '检查管理端、用户私有资源、订单、权限和数据导出接口是否校验操作者身份与资源归属。'], '授权边界破坏会造成未授权访问、水平越权或管理功能暴露。', ['恢复 Spring Security、方法级授权或显式归属校验。', '为越权场景补充回归测试。'], 'Spring Security Authorization 文档；OWASP API Security Top 10。'),
+  rule('DEFAULT-JAVA-SEC-005', 'XML 解析必须禁用外部实体和不可信 DTD', 95, 'critical', true, javaPaths, '解析 XML、SVG、Office、SOAP 或上传文件时，不得在未加固的解析器上处理不可信输入。', ['检查 DocumentBuilderFactory、SAXParserFactory、XMLInputFactory、TransformerFactory、SAXReader 是否禁用 DOCTYPE、外部实体和外部 DTD。', '检查是否限制实体展开、文件访问、网络访问和解析大小。'], 'XXE 可能读取服务器文件、发起 SSRF、泄露凭据或造成拒绝服务。', ['禁用 DTD 和外部实体，并限制外部 schema、stylesheet、entity 访问。', '对上传 XML 增加大小、类型和 schema 校验。'], 'OWASP XML External Entity Prevention Cheat Sheet；CWE-611；JAXP Security Guide。'),
+  rule('DEFAULT-JAVA-SEC-006', '安全令牌、验证码和密钥材料必须使用 SecureRandom', 90, 'critical', true, javaPaths, '密码重置令牌、验证码、会话标识、salt、nonce、签名随机数等安全材料不得使用 Math.random 或 java.util.Random。', ['检查 random、Math.random、UUID 错误用途是否用于安全令牌。', '检查 SecureRandom 是否复用合理且没有固定种子。'], '弱随机会让令牌可预测，导致账号接管、验证码绕过或签名伪造。', ['使用 SecureRandom 生成安全随机数。', '令牌应有足够熵、过期时间和一次性使用约束。'], 'OWASP Cryptographic Storage Cheat Sheet；JDK SecureRandom；阿里巴巴安全规约。'),
+  rule('DEFAULT-JAVA-SEC-007', '禁止弱加密、弱摘要和 ECB 模式用于安全保护', 90, 'critical', true, javaPaths, '密码、Token、敏感字段、签名和传输保护不得使用 MD5、SHA1、DES、RC4、AES/ECB 等弱算法或模式。', ['检查 MessageDigest、Cipher、Mac、PasswordEncoder 的算法选择。', '检查密码存储是否使用可抗暴力破解的专用算法。'], '弱加密会导致密码被破解、密文模式泄露、完整性保护失效或合规风险。', ['密码使用 bcrypt、scrypt、Argon2 或 PBKDF2。', '对称加密使用认证加密模式并正确管理 IV、nonce 和密钥轮换。'], 'OWASP Cryptographic Storage Cheat Sheet；CWE-327；JDK Cryptography Architecture。'),
+  rule('DEFAULT-JAVA-SEC-008', '文件路径必须归一化并限制在允许目录内', 90, 'critical', true, javaPaths, '下载、上传、导入导出、模板渲染和压缩包处理不得直接使用用户可控路径或文件名。', ['检查 File、Path、Resource、MultipartFile、ZipEntry 和静态资源读取是否接收外部路径。', '检查 normalize/realPath 后是否仍限制在允许的 base directory 内。'], '路径遍历会造成任意文件读取、覆盖、删除、压缩包逃逸或敏感配置泄露。', ['使用固定目录和安全文件名映射。', '解析真实路径后校验仍位于允许目录内，并拒绝绝对路径、.. 和特殊设备路径。'], 'OWASP Path Traversal；CWE-22；Java NIO Path。'),
   rule('DEFAULT-JAVA-SPR-001', '禁止明确删除或绕过关键输入校验', 85, 'high', true, springWebPaths, '不得明确移除认证、授权、持久化、金额、权限或数据破坏相关的 Bean Validation、手动校验和业务约束。', ['检查 @Valid、@Validated、NotNull、Size、Pattern、自定义 Validator 是否被删除。', '检查金额、状态流转、租户、权限和危险操作是否绕过校验。'], '关键校验被移除会导致脏数据入库、越权参数、数据破坏或业务约束失效。', ['恢复关键校验并把校验放在入口和领域边界。', '为被绕过的边界补充失败用例。'], 'Spring Validation；Bean Validation；阿里巴巴 Java 开发手册。'),
   rule('DEFAULT-JAVA-SPR-002', '禁止破坏事务一致性边界', 90, 'critical', true, springServicePaths, '多表、多资源或多步骤写入必须保持清晰事务边界，不得让关键写入半成功。', ['检查 @Transactional 是否被删除、传播级别是否改变、异常是否被吞掉。', '检查资金、库存、订单、权限、规则结果落库等路径是否保持原子性。'], '事务边界破坏会造成资金、库存、状态或审计数据不一致。', ['恢复事务注解或显式事务控制。', '异常应回滚、重新抛出或进入补偿流程。'], 'Spring Transaction 文档；MySQL InnoDB 事务；Oracle COMMIT/ROLLBACK。'),
   rule('DEFAULT-JAVA-SPR-003', '@Transactional 方法避免内部自调用导致事务失效', 60, 'high', false, springServicePaths, 'Spring AOP 代理下，同类内部调用事务方法通常不会触发事务增强。', ['检查 this.method() 调用被 @Transactional 标注的方法。', '检查事务入口是否通过代理、独立 service 或 TransactionTemplate 触发。'], '事务未生效会导致异常后提交、锁范围异常或数据部分更新。', ['把事务方法移到独立 Bean，或通过代理入口调用。', '必要时使用 TransactionTemplate 表达边界。'], 'Spring AOP；Spring Transaction rollback rules。'),
@@ -208,6 +234,8 @@ const vueRules = [
   rule('DEFAULT-VUE-SEC-003', '动态 URL、CSS、事件属性必须经过白名单或净化', 80, 'high', false, vuePaths, '绑定到 href、src、style、事件或可执行属性的数据必须经过白名单和协议限制。', ['检查 :href、:src、:style、动态事件名和路由跳转目标。', '检查 javascript:、data:、外部域名和用户样式是否被限制。'], '恶意 URL 或样式可能造成 XSS、钓鱼跳转、点击劫持或内容欺骗。', ['使用固定枚举、URL 解析和协议白名单。', '后端也要对可保存 URL 做校验。'], 'Vue Security Guide；OWASP HTML5 Security Cheat Sheet。'),
   rule('DEFAULT-VUE-SEC-004', '禁止前端持久化敏感 Token、密钥或会话秘密', 95, 'critical', true, vuePaths, '不得把长期 Token、密钥、会话秘密或敏感凭据写入 localStorage、IndexedDB、源码常量或可导出的前端状态。', ['检查 localStorage、sessionStorage、IndexedDB、Pinia/Vuex 持久化和环境变量。', '检查 Token 是否可被任意脚本读取。'], '一旦发生 XSS，持久化秘密会被直接窃取并复用。', ['优先使用 HttpOnly、Secure、SameSite Cookie 或短期令牌。', '清理前端持久化凭据并轮换泄露令牌。'], 'OWASP HTML5 Security；OWASP Secrets Management。'),
   rule('DEFAULT-VUE-SEC-005', '外链 _blank 必须配置 rel noopener noreferrer', 45, 'medium', false, ['**/*.vue'], '新窗口打开外部链接时应阻断 opener 反向控制。', ['检查 target="_blank" 是否缺少 rel。', '检查封装链接组件是否统一处理外链。'], '缺少 rel 可能导致 tabnabbing 或外部页面控制原页面跳转。', ['添加 rel="noopener noreferrer"。', '封装统一的安全外链组件。'], 'Vue Security Guide；MDN rel noopener。'),
+  rule('DEFAULT-VUE-SEC-006', 'SSR 必须为每个请求创建独立 app、router 和 store', 90, 'critical', true, vuePaths, 'Vue SSR、Nuxt 或自建服务端渲染不得在模块级共享用户状态、请求上下文、权限信息或缓存对象。', ['检查 SSR 入口是否每个请求创建 createApp、router、pinia/store 和 request context。', '检查模块顶层 reactive/ref/store 是否保存用户、租户、权限或接口响应。'], '跨请求状态污染会造成用户数据泄露、权限串号、缓存错配或页面内容互相污染。', ['把 app、router、store 和用户上下文放入请求级 factory。', '只允许共享无用户态的只读配置和静态资源缓存。'], 'Vue SSR Guide；Nuxt SSR state isolation；OWASP Sensitive Data Exposure。'),
+  rule('DEFAULT-VUE-SEC-007', '前端路由守卫不得替代服务端鉴权', 80, 'high', false, vuePaths, '前端 route guard、菜单隐藏、按钮禁用只能改善体验，不得作为唯一权限控制；只有 diff 明确删除或绕过服务端鉴权证据时才应升级为强风险。', ['检查新增管理页面、导出、删除、审批等高风险入口是否只在前端判断角色。', '检查接口调用是否依赖后端鉴权、租户隔离和资源归属校验。'], '攻击者可以绕过前端路由和按钮限制直接调用接口，造成越权读取或修改。', ['后端接口必须执行认证、授权和资源归属校验。', '前端权限只作为展示控制，并保持与后端权限模型一致。'], 'OWASP Broken Access Control；Vue Router Navigation Guards。'),
   rule('DEFAULT-VUE-CONTRACT-001', 'props 必须声明类型、必填项、默认值或 validator', 55, 'medium', false, ['**/*.vue', '**/*.ts', '**/*.tsx'], '组件 props 应表达清晰契约，避免隐式依赖和运行时猜测。', ['检查 props 是否缺少 type、required、default 或 validator。', '检查复杂对象是否声明结构和默认值。'], '组件契约不清会造成状态错乱、运行时错误和回归难定位。', ['补充 props 类型和默认值。', '对关键枚举使用 validator 或 TypeScript 类型。'], 'Vue Style Guide；Vue Props 文档。'),
   rule('DEFAULT-VUE-CONTRACT-002', '禁止直接修改 props', 65, 'high', false, ['**/*.vue', '**/*.ts', '**/*.tsx'], '子组件不得直接修改父组件传入的 props 或其可变嵌套状态。', ['检查 props.foo =、props.list.push、解构后回写等模式。', '检查是否通过 emit 或本地副本表达变更。'], '直接修改 props 会破坏单向数据流，导致父子状态不一致。', ['使用 emit 请求父组件更新。', '需要本地编辑时复制为本地 state。'], 'Vue Style Guide；Vue Component Props。'),
   rule('DEFAULT-VUE-CONTRACT-003', 'Vue 3 组件事件必须通过 emits 声明', 45, 'medium', false, ['**/*.vue', '**/*.ts', '**/*.tsx'], 'Vue 3 组件应声明 emits 和事件负载，保持组件 API 清晰。', ['检查 defineEmits 或 emits 选项是否缺失。', '检查事件名和 payload 是否有类型或校验。'], '事件契约不清会导致父组件监听错误和迁移兼容问题。', ['补充 emits 声明。', '用 TypeScript 类型或运行时校验表达 payload。'], 'Vue Component Events；Vue Style Guide。'),
@@ -215,9 +243,23 @@ const vueRules = [
   rule('DEFAULT-VUE-PERF-002', '避免在同一元素同时使用 v-if 和 v-for', 45, 'medium', false, ['**/*.vue'], '同一元素混用 v-if 和 v-for 会造成优先级困惑、性能浪费或访问不到循环变量。', ['检查模板中同一标签同时出现 v-if 和 v-for。', '检查过滤逻辑是否可以前置为 computed。'], '混用会造成渲染结果不稳定、性能下降或迁移问题。', ['把过滤结果放到 computed。', '用外层 template 或子组件拆分条件。'], 'Vue Style Guide；Vue Conditional Rendering。'),
   rule('DEFAULT-VUE-PERF-003', 'computed 不得包含副作用或异步逻辑', 60, 'high', false, vuePaths, 'computed 应保持同步、纯函数和可缓存，不应发请求、写状态或执行副作用。', ['检查 computed 内是否调用接口、修改 ref/reactive 或触发路由。', '检查异步逻辑是否应迁移到 watch 或显式 action。'], '副作用 computed 会导致循环更新、缓存失效和状态难以预测。', ['把副作用移入 watch、事件处理或 composable action。', 'computed 只返回派生值。'], 'Vue Computed 文档；Vue Reactivity。'),
   rule('DEFAULT-VUE-PERF-004', '避免深度 watch 大对象或在模板中执行高成本计算', 45, 'medium', false, vuePaths, '大对象 deep watch、模板内复杂过滤排序和每次 render 的高成本计算应受控。', ['检查 deep: true 是否作用于大对象。', '检查模板是否直接执行 filter/sort/reduce 或复杂函数。'], '高成本响应式遍历会造成输入卡顿和首屏性能下降。', ['缩小 watch 范围。', '把昂贵计算缓存到 computed 或服务端。'], 'Vue Performance Guide；Vue Watchers。'),
+  rule('DEFAULT-VUE-PERF-005', 'computed 排序和反转不得直接修改原响应式数组', 55, 'high', false, vuePaths, '在 computed、render 或模板派生数据中使用 sort、reverse、splice 等可变方法前必须复制数组。', ['检查 computed 中是否直接对 ref/reactive 数组调用 sort、reverse、splice。', '检查派生列表是否意外修改源状态。'], '派生计算修改源数组会触发难以预测的重渲染、状态错位和回归缺陷。', ['使用 [...list].sort()、toSorted、slice 后再处理。', '需要修改源数据时放到显式 action，并说明业务意图。'], 'Vue List Rendering；JavaScript Array sort/reverse mutability。'),
   rule('DEFAULT-VUE-ASYNC-001', '组件请求必须处理取消、过期响应和卸载后的状态写入', 60, 'high', false, vuePaths, 'watcher、组件和 composable 中的异步请求必须处理竞态、取消和组件卸载。', ['检查快速切换参数时旧响应是否可能覆盖新状态。', '检查 onUnmounted、onWatcherCleanup 或 AbortController 是否被使用。'], '过期响应会覆盖新数据，卸载后写状态会造成警告或内存泄露。', ['使用 AbortController 或请求序列号。', '在卸载和 watcher cleanup 中取消请求。'], 'Vue Watchers；MDN AbortController。'),
   rule('DEFAULT-VUE-ASYNC-002', 'fetch/axios 必须处理失败、loading 复位和用户可理解错误状态', 55, 'high', false, vuePaths, '前端请求必须处理网络错误、HTTP 非成功状态和 finally 清理。', ['检查 catch、response.ok、axios error 和 loading finally。', '检查错误是否反馈给用户或上层流程。'], '吞错会造成假成功、无限 loading 或数据不一致。', ['补充错误处理和 finally。', '为关键流程添加重试或用户可理解提示。'], 'MDN Fetch；Axios Error Handling；Vue Guide。'),
   rule('DEFAULT-VUE-TS-001', '避免新增 any、@ts-ignore 和不必要的非空断言', 45, 'medium', false, ['**/*.vue', '**/*.ts', '**/*.tsx'], '新增类型逃逸必须有明确理由，不得用 any 或 @ts-ignore 掩盖组件和接口契约问题。', ['检查 any、as any、@ts-ignore、! 非空断言。', '检查接口响应和 props 是否可用类型建模。'], '类型逃逸会把可发现错误推迟到运行时。', ['补充真实类型、泛型或类型守卫。', '确需忽略时写明原因和移除条件。'], 'TypeScript noImplicitAny；typescript-eslint no-explicit-any。'),
+];
+
+const pythonRules = [
+  rule('DEFAULT-PYTHON-SEC-001', '禁止反序列化不可信 pickle、marshal 或 shelve 数据', 95, 'critical', true, pythonPaths, 'Python 代码不得对来自请求、文件上传、消息队列、缓存、外部系统或用户可控路径的数据直接执行不可信反序列化。', ['检查 pickle.load、pickle.loads、marshal.load、shelve.open、joblib.load、dill.loads 等入口的数据来源。', '检查是否存在签名校验、类型白名单、隔离执行或改用 JSON/schema 的替代方案。'], '不可信反序列化可能执行任意代码、构造恶意对象或绕过权限边界。', ['改用 JSON、dataclass、pydantic 等受控数据格式并做 schema 校验。', '确需反序列化时只允许可信来源，并增加签名、版本和类型白名单校验。'], 'Python pickle 官方文档安全警告；OWASP Deserialization Cheat Sheet；Bandit B301。'),
+  rule('DEFAULT-PYTHON-SEC-002', '禁止 shell=True 执行用户可控命令', 95, 'critical', true, pythonPaths, '不得把用户输入、接口参数、配置项、文件名或数据库字段拼接后交给 subprocess、os.system、popen 等 shell 执行。', ['检查 subprocess.run/Popen/call/check_output 中 shell=True 的参数来源。', '检查 os.system、os.popen、commands、pty.spawn 是否拼接外部输入。'], '命令注入会导致任意命令执行、服务器接管、数据泄露或横向移动。', ['使用参数数组并保持 shell=False。', '命令、子命令、文件名和可选参数必须通过固定白名单映射。'], 'Python subprocess Security Considerations；OWASP OS Command Injection Defense；Bandit B602/B605。'),
+  rule('DEFAULT-PYTHON-SEC-003', '禁止 eval、exec 或动态 import 执行不可信输入', 95, 'critical', true, pythonPaths, '不得把用户输入、接口返回、配置文本或数据库内容交给 eval、exec、compile、__import__、importlib 动态执行。', ['检查 eval/exec/compile 的表达式是否来自外部输入。', '检查动态 import、getattr 调用链是否允许用户选择模块、类或函数。'], '动态代码执行可能造成 RCE、权限绕过、任意文件访问或业务逻辑被替换。', ['改用显式函数映射、枚举表或表达式解析器。', '确需插件化时使用签名校验、白名单和隔离运行环境。'], 'OWASP Code Review Guide；Bandit B307；Python 安全实践。'),
+  rule('DEFAULT-PYTHON-SEC-004', 'SQL 查询必须参数化，禁止字符串拼接外部输入', 95, 'critical', true, pythonPaths, 'Python 数据访问代码不得用 f-string、百分号格式化、format 或字符串拼接把外部输入直接放入 SQL。', ['检查 sqlite3、pymysql、psycopg、cx_Oracle、SQLAlchemy text/raw SQL 是否使用绑定参数。', '检查 order by、表名、列名等动态标识符是否来自白名单映射。'], 'SQL 注入会造成越权读取、批量修改、删除数据或数据库权限提升。', ['使用 DB-API 参数绑定、ORM 查询构造器或命名绑定变量。', '动态标识符只能从固定枚举映射生成。'], 'OWASP SQL Injection Prevention Cheat Sheet；Python sqlite3 参数化示例；PEP 249。'),
+  rule('DEFAULT-PYTHON-SEC-005', '禁止弱随机、弱哈希或硬编码密钥用于安全场景', 90, 'critical', true, pythonPaths, '令牌、验证码、密码重置、签名密钥、会话秘密和密码存储不得使用 random、MD5、SHA1 或硬编码密钥。', ['检查 random.random/randint/choice 是否用于 token、salt、secret、nonce、验证码等安全字段。', '检查 hashlib.md5/sha1 是否用于密码、签名或完整性保护；检查源码和配置中的真实密钥。'], '弱随机和弱哈希会导致 token 可预测、密码可破解、签名被伪造或密钥泄露。', ['使用 secrets、os.urandom 或 cryptography 的安全随机。', '密码使用 bcrypt、argon2、scrypt 或 PBKDF2；密钥放入密钥管理或受控配置。'], 'Python secrets 官方文档；OWASP Cryptographic Storage Cheat Sheet；Bandit B303/B311。'),
+  rule('DEFAULT-PYTHON-DATA-001', '金额、费率和精确小数必须使用 Decimal 或整数最小单位', 70, 'high', false, pythonPaths, '财务金额、费率、库存数量和精确小数计算不得依赖 float 二进制精度。', ['检查金额、税率、汇率、余额、积分或库存计算是否使用 float。', '检查 Decimal 是否从字符串构造并统一舍入策略。'], '浮点误差会造成账务、计费、对账、库存和报表偏差。', ['使用 Decimal、数据库 DECIMAL/NUMERIC 或最小货币单位整数。', '统一 rounding 策略，并为边界金额补充测试。'], 'Python decimal 官方文档；IEEE 754 浮点误差；阿里巴巴金额精度规约。'),
+  rule('DEFAULT-PYTHON-TIME-001', '跨系统时间必须使用时区感知 datetime', 65, 'high', false, pythonPaths, '接口、数据库、任务调度、审计日志和跨时区业务不得混用 naive datetime 与本地隐式时区。', ['检查 datetime.now/utcnow/fromtimestamp 是否缺少 tzinfo。', '检查入库、出参、缓存过期和定时任务是否统一 UTC 或业务时区。'], '时区混乱会导致订单状态、定时任务、审计追踪和过期判断提前或延后。', ['使用 datetime.now(timezone.utc) 或明确业务时区。', '输入输出统一 ISO 8601，并在数据库和 API 契约中说明时区。'], 'Python datetime 官方文档；Django timezone practices。'),
+  rule('DEFAULT-PYTHON-IO-001', '文件路径必须归一化并限制在允许目录内', 90, 'critical', true, pythonPaths, '下载、上传、模板、导入导出和任务文件路径不得直接使用用户可控文件名或相对路径。', ['检查 open、Path、send_file、shutil、zipfile 解压路径是否来自请求或外部输入。', '检查是否 normalize/resolve 后校验仍位于允许的 base directory 内。'], '路径遍历会造成任意文件读取、覆盖、删除、压缩包逃逸或敏感配置泄露。', ['使用固定目录和安全文件名映射。', '解析真实路径后校验 startswith/base relation，并拒绝绝对路径和 .. 逃逸。'], 'OWASP Path Traversal；Python pathlib 官方文档；Bandit B108。'),
+  rule('DEFAULT-PYTHON-ASYNC-001', '异步任务、线程池和网络请求必须设置超时、取消和资源释放', 65, 'high', false, pythonPaths, 'requests、httpx、aiohttp、数据库连接、线程池、进程池和后台任务必须有超时、取消、关闭和异常处理。', ['检查 requests/httpx/aiohttp 是否缺少 timeout。', '检查 ThreadPoolExecutor、ProcessPoolExecutor、asyncio task、数据库连接和文件句柄是否释放。'], '缺少超时和释放会导致请求堆积、连接耗尽、任务泄露或服务不可恢复。', ['为外部调用设置连接与读取超时。', '使用 with/async with、finally、取消令牌和受控 executor 生命周期。'], 'Python requests/httpx 最佳实践；asyncio task lifecycle；OWASP Resource Consumption。'),
+  rule('DEFAULT-PYTHON-MAINT-001', '避免新增大段全局副作用和导入期执行重逻辑', 40, 'medium', false, pythonPaths, '模块导入阶段不应执行网络请求、数据库写入、长耗时计算、启动线程或读取生产敏感资源。', ['检查模块顶层是否执行 I/O、启动后台任务或修改外部状态。', '检查配置读取、连接初始化和任务注册是否可测试、可延迟、可失败。'], '导入期副作用会造成启动失败、测试难隔离、循环导入和发布时不可控外部写入。', ['把副作用移动到显式 main、factory、依赖注入或应用启动钩子。', '为初始化失败提供清晰错误和回滚路径。'], 'Python import system；Twelve-Factor App；可测试性最佳实践。'),
 ];
 
 const mysqlRules = [
@@ -244,6 +286,11 @@ const mysqlRules = [
   rule('DEFAULT-MYSQL-QUERY-002', 'GROUP BY 查询必须保持结果确定性', 60, 'high', false, mysqlPaths, '分组查询不得依赖 MySQL 非严格模式下的任意行返回，选择列必须与 GROUP BY 或聚合语义一致。', ['检查 SELECT 列是否既不在 GROUP BY 中，也没有聚合函数或 ANY_VALUE 语义说明。', '检查是否依赖关闭 ONLY_FULL_GROUP_BY 的历史行为。'], '非确定性分组会导致报表、对账和分页结果随执行计划变化而漂移。', ['补齐 GROUP BY 字段或使用明确聚合函数。', '保留任意值时使用显式 ANY_VALUE 并说明业务语义。'], 'MySQL GROUP BY Handling；ONLY_FULL_GROUP_BY。'),
   rule('DEFAULT-MYSQL-NULL-001', '新增 NOT NULL、默认值和字段收紧必须兼容历史数据', 90, 'critical', true, mysqlPaths, '新增 NOT NULL、UNIQUE、缩短字段长度、修改类型或默认值时，必须兼容历史数据和新旧应用同时运行窗口。', ['检查旧数据是否已回填并通过验证 SQL。', '检查旧版本应用是否仍可能写入空值、超长值或不满足唯一约束的数据。'], '迁移失败、灰度期间写入失败、数据截断或唯一冲突会阻断发布。', ['采用加字段可空、回填、双写兼容读取、加约束的分阶段迁移。', '补充历史数据验证和回滚方案。'], 'MySQL ALTER TABLE；MySQL Data Type Defaults。'),
   rule('DEFAULT-MYSQL-CHARSET-001', '字符集、排序规则和文本长度必须保持一致', 60, 'high', false, mysqlPaths, '新增或修改字符串字段、索引和比较条件时，应明确 utf8mb4、collation、大小写敏感性和长度边界。', ['检查新表或字段是否沿用错误字符集或排序规则。', '检查唯一索引是否因大小写、emoji、多字节字符或长度限制产生意外冲突。'], '字符集和排序规则不一致会导致写入失败、比较结果异常、索引失效或唯一约束误判。', ['统一字符集和排序规则。', '同步前端、Java 校验和数据库字段长度，必要时调整索引前缀。'], 'MySQL Character Sets；MySQL Collation。'),
+  rule('DEFAULT-MYSQL-PRIV-001', '应用账号禁止授予过宽权限或转授权能力', 95, 'critical', true, mysqlPaths, '应用、报表和迁移账号不得被授予 ALL PRIVILEGES、*.*、SUPER、FILE、PROCESS、WITH GRANT OPTION 等超出职责的权限。', ['检查 GRANT、CREATE USER、ALTER USER 和部署脚本中的权限范围。', '检查应用账号是否拥有 DDL、跨库、文件读写或转授权能力。'], '过宽权限会扩大入侵半径，导致越权读取、批量破坏、横向移动或审计失效。', ['按应用账号、迁移账号、只读账号拆分最小权限。', '只授予具体库表和必要操作，并移除 WITH GRANT OPTION。'], 'MySQL Access Control；OWASP Least Privilege；阿里巴巴数据库安全规约。'),
+  rule('DEFAULT-MYSQL-CONS-002', '禁止无保护地关闭外键、唯一性或安全更新检查', 90, 'critical', true, mysqlPaths, '迁移脚本不得无说明地设置 FOREIGN_KEY_CHECKS=0、UNIQUE_CHECKS=0、SQL_SAFE_UPDATES=0 或类似绕过完整性保护的开关。', ['检查关闭约束检查后是否在同一脚本恢复。', '检查是否有数据校验、影响范围说明和失败回滚路径。'], '完整性检查被绕过会留下孤儿数据、重复数据或不受控批量更新。', ['尽量通过分阶段迁移和数据清洗满足约束。', '确需临时关闭时必须限制会话范围、恢复开关并执行校验 SQL。'], 'MySQL Server System Variables；MySQL InnoDB Foreign Key Constraints。'),
+  rule('DEFAULT-MYSQL-DML-003', '禁止用 REPLACE INTO 替代安全 upsert', 70, 'high', false, mysqlPaths, '不得在不了解删除再插入语义的情况下使用 REPLACE INTO 处理幂等或更新。', ['检查 REPLACE INTO 是否作用于有外键、触发器、自增主键、审计字段或级联关系的表。', '检查冲突时是否会删除旧行并重新插入，导致关联和审计语义变化。'], 'REPLACE INTO 可能触发级联删除、重置自增值、覆盖审计字段或造成业务状态丢失。', ['优先使用 INSERT ... ON DUPLICATE KEY UPDATE 并明确更新字段。', '幂等写入应使用唯一键、状态机和影响行数校验。'], 'MySQL REPLACE Statement；MySQL INSERT ON DUPLICATE KEY UPDATE。'),
+  rule('DEFAULT-MYSQL-SEQ-001', '禁止用 MAX(id)+1 生成主键、流水号或业务序号', 90, 'critical', true, mysqlPaths, '生产写入不得通过 SELECT MAX(id)+1、count+1 或查询当前最大值的方式生成并发唯一标识。', ['检查 INSERT SELECT MAX(id)+1、先查最大号再插入、应用内自增计数等模式。', '检查流水号是否在并发、重试和多节点场景下保持唯一。'], '并发请求会生成重复编号，造成主键冲突、覆盖业务单据或重复履约。', ['使用数据库自增、序列服务、雪花算法或带唯一约束的发号表。', '为并发创建、重试和回滚场景补充测试。'], 'MySQL AUTO_INCREMENT；阿里巴巴数据库规约；并发唯一性实践。'),
+  rule('DEFAULT-MYSQL-QUERY-003', 'NOT IN 子查询字段可为空时必须改写', 60, 'high', false, mysqlPaths, '当子查询字段可能包含 NULL 时，不得直接使用 NOT IN 表达反关联语义。', ['检查 NOT IN 子查询的选择列是否可能为 NULL。', '检查是否有 IS NOT NULL 过滤、NOT EXISTS 改写或左连接反查。'], 'SQL 三值逻辑会让 NOT IN 遇到 NULL 后返回非预期结果，导致漏查、漏删或错误报表。', ['改用 NOT EXISTS。', '若继续使用 NOT IN，必须显式过滤子查询 NULL 并补充边界测试。'], 'MySQL Subquery Optimization；SQL NULL three-valued logic。'),
 ];
 
 const oracleRules = [
@@ -267,6 +314,11 @@ const oracleRules = [
   rule('DEFAULT-ORACLE-TXN-003', '自治事务必须限定审计场景并避免破坏主事务一致性', 80, 'critical', true, oraclePaths, 'PRAGMA AUTONOMOUS_TRANSACTION 只能用于明确的审计、补偿记录等隔离场景，不得在业务写入中绕过主事务提交或回滚。', ['检查自治事务中是否修改业务表、资金表、库存表或状态表。', '检查自治事务是否有明确异常处理、审计目的和调用边界。'], '自治事务会独立提交，可能让主事务回滚后仍留下业务副作用，造成数据不一致。', ['把业务写入纳入主事务。', '仅保留审计类自治事务，并记录调用方、资源和结果。'], 'Oracle Autonomous Transactions；Oracle PL/SQL Transactions。'),
   rule('DEFAULT-ORACLE-TRG-001', '触发器副作用必须可追踪且不得隐藏业务写入', 70, 'high', false, oraclePaths, '新增或修改触发器时，必须说明触发条件、副作用、递归风险和与应用事务的一致性关系。', ['检查触发器是否写业务表、调用外部过程或修改同一业务对象。', '检查是否存在递归触发、顺序依赖或隐藏审计字段变更。'], '触发器隐藏副作用会让应用代码难以审查，可能造成重复写入、递归异常或事务结果不可预测。', ['把核心业务写入显式放到应用或过程入口。', '保留触发器时补充说明、测试和审计日志。'], 'Oracle Triggers；Oracle Data Integrity。'),
   rule('DEFAULT-ORACLE-PRIV-001', '数据库权限变更必须最小授权并避免对象所有者越权', 90, 'critical', true, oraclePaths, '新增 GRANT、CREATE SYNONYM、包权限、跨 schema 访问或高权限账号使用时，必须遵守最小权限并说明授权对象和调用边界。', ['检查是否新增 GRANT ANY、SELECT ANY TABLE、DBA、CREATE ANY 等高权限。', '检查跨 schema 同义词或高权限包过程是否绕过应用数据权限。'], '过宽数据库权限会造成越权读取、批量数据篡改、横向移动和审计困难。', ['只授权具体对象和必要操作。', '按应用账号、迁移账号、只读账号拆分权限，并对高权限过程增加审计。'], 'Oracle Privileges；Oracle Security Guide。'),
+  rule('DEFAULT-ORACLE-SEC-003', '动态 SQL 拼接日期和数字必须绑定或显式格式化', 90, 'critical', true, oraclePaths, 'Oracle 动态 SQL 不得依赖会话 NLS 参数把日期、数字或金额隐式转成字符串后拼接。', ['检查 EXECUTE IMMEDIATE 中日期、数字、金额拼接。', '检查是否使用绑定变量，或使用显式格式模型且输入来源可信。'], 'NLS 语义差异可能让 SQL 语义漂移，严重时形成注入或错误数据范围。', ['优先使用绑定变量。', '确需动态文本时使用固定格式模型，并拒绝用户控制格式。'], 'Oracle SQL Injection；Oracle NLS Parameters；OWASP SQL Injection。'),
+  rule('DEFAULT-ORACLE-CONS-002', '禁止迁移脚本遗留禁用约束或触发器', 90, 'critical', true, oraclePaths, '迁移和修复脚本不得禁用 constraint、trigger 或完整性检查后缺少恢复与验证。', ['检查 DISABLE CONSTRAINT、DISABLE TRIGGER、ALTER TRIGGER DISABLE 是否出现。', '检查是否在同一发布步骤恢复启用并验证历史数据。'], '约束或触发器长期关闭会绕过完整性、审计和业务保护，造成脏数据或权限记录缺失。', ['优先修复数据后再启用约束。', '确需禁用时限制窗口、恢复启用并提供验证 SQL。'], 'Oracle Constraints；Oracle Triggers；Oracle Data Integrity。'),
+  rule('DEFAULT-ORACLE-MERGE-001', 'MERGE 源数据必须保证匹配键唯一', 70, 'high', false, oraclePaths, '使用 MERGE 做同步、修复或迁移时，源数据的 ON 匹配键必须唯一且可验证。', ['检查 USING 子查询或临时表是否可能出现重复匹配键。', '检查是否有去重、唯一约束或执行前校验 SQL。'], '重复匹配会导致运行时错误、不稳定更新或重复覆盖业务数据。', ['对源数据先 group by/row_number 去重。', '在 stage 表增加唯一约束或执行前重复键检查。'], 'Oracle MERGE Statement；Oracle Data Integrity。'),
+  rule('DEFAULT-ORACLE-QUERY-001', 'NOT IN 子查询字段可为空时必须改写', 60, 'high', false, oraclePaths, '当子查询字段可能包含 NULL 时，不得直接使用 NOT IN 表达反关联语义。', ['检查 NOT IN 子查询的选择列是否可能为 NULL。', '检查是否使用 NOT EXISTS、LEFT JOIN 反查或显式 IS NOT NULL。'], 'Oracle 三值逻辑会让 NOT IN 遇到 NULL 后返回非预期结果，造成漏查、漏删或错误报表。', ['改写为 NOT EXISTS。', '保留 NOT IN 时显式过滤 NULL 并补充边界测试。'], 'Oracle SQL Conditions；SQL NULL three-valued logic。'),
+  rule('DEFAULT-ORACLE-RECOVER-001', 'NOLOGGING 和直接路径批量写入必须说明恢复与备库影响', 65, 'high', false, oraclePaths, '新增 NOLOGGING、APPEND、直接路径装载或大批量索引构建时，必须说明介质恢复、备库同步和补救策略。', ['检查 CREATE INDEX/ALTER TABLE/INSERT APPEND 是否使用 NOLOGGING。', '检查是否说明备份、Data Guard、补录或重建方案。'], 'NOLOGGING 可能影响恢复链路和备库一致性，故障时导致对象不可恢复或数据缺口。', ['仅在受控窗口使用，并在执行后备份或重建备库对象。', '关键业务表默认保持可恢复写入。'], 'Oracle NOLOGGING；Oracle Data Guard；Oracle Backup and Recovery。'),
 ];
 
 const droolsRules = [
@@ -636,6 +688,7 @@ export const DEFAULT_DOCS = {
   'docs/RULES.md': RULES_GUIDE,
   'docs/default/java.md': renderDoc('Java 默认审核规则', javaRules),
   'docs/default/vue.md': renderDoc('Vue 默认审核规则', vueRules),
+  'docs/default/python.md': renderDoc('Python 默认审核规则', pythonRules),
   'docs/default/mysql.md': renderDoc('MySQL 默认审核规则', mysqlRules),
   'docs/default/oracle.md': renderDoc('Oracle 默认审核规则', oracleRules),
   'docs/default/drools.md': renderDoc('Drools 默认审核规则', droolsRules),

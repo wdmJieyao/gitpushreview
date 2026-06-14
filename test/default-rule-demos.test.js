@@ -33,6 +33,15 @@ const demoSamples = [
     expectedRules: ['DEFAULT-VUE-SEC-002', 'DEFAULT-SEC-004'],
   },
   {
+    name: 'Python endpoint executes user controlled shell command',
+    file: 'src/app/jobs/export_report.py',
+    snippet: `
+      cmd = request.args["cmd"]
+      subprocess.run(cmd, shell=True)
+    `,
+    expectedRules: ['DEFAULT-PYTHON-SEC-002'],
+  },
+  {
     name: 'Oracle package executes dynamic SQL',
     file: 'db/oracle/packages/user_admin.pkb',
     snippet: `
@@ -61,13 +70,13 @@ const demoSamples = [
   },
   {
     name: 'Database migration changes schema',
-    file: 'migrations/V20260614__drop_legacy_user.sql',
+    file: 'db/mysql/migrations/V20260614__drop_legacy_user.sql',
     snippet: 'drop table legacy_user;',
-    expectedRules: ['DEFAULT-MYSQL-DDL-001', 'DEFAULT-ORACLE-DDL-002', 'DEFAULT-WORKFLOW-005'],
+    expectedRules: ['DEFAULT-MYSQL-DDL-001', 'DEFAULT-WORKFLOW-005'],
   },
   {
     name: 'MySQL migration tightens constraints during rollout',
-    file: 'migrations/V20260615__add_order_unique_key.sql',
+    file: 'migrations/mysql/V20260615__add_order_unique_key.sql',
     snippet: 'alter table orders add unique key uk_order_no(order_no), modify buyer_name varchar(20) not null;',
     expectedRules: ['DEFAULT-MYSQL-DDL-003', 'DEFAULT-MYSQL-CONS-001', 'DEFAULT-MYSQL-NULL-001'],
   },
