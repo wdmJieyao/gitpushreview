@@ -288,7 +288,336 @@ const workflowRules = [
   rule('DEFAULT-WORKFLOW-008', '提交前不得遗留调试代码、跳过测试和临时断言', 70, 'high', false, workflowPaths, '提交中不得保留 console 调试、临时开关、跳过测试、only 测试或短路断言。', ['检查 console.log、debugger、describe.only、it.skip、临时 return。', '检查测试跳过是否有明确 issue 和期限。'], '临时代码会污染日志、降低测试可信度或绕过关键逻辑。', ['删除调试代码。', '恢复被跳过测试或说明跟踪 issue。'], 'GitHub Pull Request Review；Vue Testing；JUnit。'),
 ];
 
+const RULES_GUIDE = `# GitPushReview 规则编写说明
+
+本目录用于配置提交前代码审核规则。GitPushReview 只会加载 \`.gitpushreview/agent/rules-index.md\` 中声明的规则文件，不会自动扫描所有 Markdown 文件。
+
+## 规则编写格式
+
+一个 Markdown 文件可以写多条规则。每条规则必须使用二级标题，格式为：
+
+\`\`\`md
+## 规则ID 中文规则标题
+\`\`\`
+
+规则 ID 建议使用稳定前缀：
+
+- \`DEFAULT-...\`：插件内置默认规则。
+- \`PROJECT-...\`：项目通用规则，例如架构分层、接口契约、数据模型。
+- \`DIY-...\`：项目最高优先级规则，例如鉴权、资金、审计、生产安全红线。
+
+标题下面必须紧跟一段 YAML 元数据：
+
+\`\`\`yaml
+score: 80
+severity: high
+hardBlock: false
+paths:
+  - backend/**/*.java
+  - frontend/**/*.vue
+\`\`\`
+
+正文建议固定使用这些小节，AI 会把它们作为审核依据和修复建议来源：
+
+- **规则说明**：这条规则要求什么。
+- **检查要点**：审核时应该检查哪些信号。
+- **违规风险**：违反后会造成什么业务、数据、安全或稳定性问题。
+- **修复建议**：希望开发者如何整改。
+- **不推荐示例**：可以放代码片段，帮助 AI 判断。
+- **推荐示例**：可以放代码片段，帮助 AI 给出更准确建议。
+
+## 字段说明
+
+- \`score\`：规则基础分，建议 1-100。分数越高，风险越高。
+- \`severity\`：严重等级，只建议填写 \`low\`、\`medium\`、\`high\`、\`critical\`。
+- \`hardBlock\`：是否单条命中就强拦截。明显异常、高风险安全问题、资金问题、越权问题建议设置为 \`true\`。
+- \`paths\`：规则适用文件范围。必须尽量精确，不建议使用 \`**/*\` 这种全局兜底。
+
+## 计分机制
+
+每条规则命中后会形成一个 finding。最终分数按规则来源的权重计算：
+
+\`\`\`text
+weightedScore = score × weight
+totalScore = 所有 finding 的 weightedScore 之和
+\`\`\`
+
+默认权重在 \`.gitpushreview/agent/rules-index.md\` 中配置：
+
+- BDR：\`weight: 1.0\`
+- Default Rules：\`weight: 1.0\`
+- Project Rules：\`weight: 1.5\`
+- DIY Rules：\`weight: 2.0\`
+
+拦截策略在 \`.gitpushreview/agent/policy.md\` 中配置：
+
+- \`softBlockScore\`：总分达到该值时软拦截，开发者可以确认后继续提交。
+- \`hardBlockScore\`：总分达到该值时强拦截，必须整改后才能提交。
+- \`hardBlock: true\`：单条规则命中即可强拦截，不需要等待总分达到阈值。
+
+## 提示话术和优化意见由谁维护
+
+插件内置的命令行提示由 GitPushReview 维护，例如“审核结果”“软拦截”“强拦截”。
+
+规则里的业务话术、检查要点和修复建议由项目维护者在 Markdown 中录入。提交时 AI 会结合本次 diff，把规则中的原则转成具体的“证据”和“修复建议”。
+`;
+
+const PROJECT_README = `# Project Rules 项目规则说明
+
+project 目录用于维护本项目长期有效的项目规则，例如架构分层、接口契约、数据模型、发布兼容性。
+
+这些规则默认在 \`.gitpushreview/agent/rules-index.md\` 的 \`Project Rules\` 中启用，默认权重为：
+
+\`\`\`yaml
+weight: 1.5
+\`\`\`
+
+适合写在 project 目录的规则：
+
+- 模块依赖方向、分层边界、禁止跨层访问。
+- API 字段兼容性、错误码、分页、版本策略。
+- 数据模型状态流转、迁移脚本、灰度兼容。
+- 团队约定的测试、发布、配置和可观测性要求。
+
+如果新增规则文件，需要同时把文件路径加入 \`.gitpushreview/agent/rules-index.md\` 的 \`Project Rules.files\`。
+`;
+
+const DIY_README = `# DIY Rules 说明
+
+diy 目录用于维护项目最高优先级规则。这里的规则通常来自业务红线、安全红线、资金红线、生产事故复盘和团队强约束。
+
+这些规则默认在 \`.gitpushreview/agent/rules-index.md\` 的 \`DIY Rules\` 中启用，默认权重为：
+
+\`\`\`yaml
+weight: 2.0
+hardBlockOnViolation: true
+\`\`\`
+
+适合写在 diy 目录的规则：
+
+- 鉴权、租户隔离、水平越权、数据权限。
+- 支付、退款、对账、库存、资金一致性。
+- 审计日志、敏感信息脱敏、生产配置红线。
+- 某个项目独有且违反后必须整改的规则。
+
+DIY 规则权重最高。若某条规则违反后必须整改，请在规则元数据中设置：
+
+\`\`\`yaml
+hardBlock: true
+\`\`\`
+
+如果新增规则文件，需要同时把文件路径加入 \`.gitpushreview/agent/rules-index.md\` 的 \`DIY Rules.files\`。
+`;
+
+const PROJECT_ARCHITECTURE_DOC = `# 项目架构规则
+
+## PROJECT-ARCH-001 禁止绕过应用分层直接访问下层资源
+
+\`\`\`yaml
+score: 60
+severity: high
+hardBlock: false
+paths:
+  - backend/**/*.java
+  - backend/**/*.kt
+  - src/**/*.java
+\`\`\`
+
+**规则说明**：
+Controller、Resource、Job、Listener 等入口层不应直接访问 Mapper、DAO、Repository 或底层数据源，必须通过 Service、Domain Service 或明确的应用服务表达业务边界。
+
+**检查要点**：
+- 入口层是否直接注入 Mapper、DAO、Repository、DataSource、JdbcTemplate。
+- 是否绕过已有 Service 导致鉴权、事务、审计、缓存或领域校验失效。
+- 是否新增跨模块调用，破坏既有依赖方向。
+
+**违规风险**：
+绕过分层会让权限校验、事务边界和业务约束分散，后续缺陷很难被审查和测试发现。
+
+**修复建议**：
+把数据访问和业务规则收敛到 Service 或领域对象中，入口层只负责编排请求、参数校验和响应转换。
+
+**不推荐示例**：
+\`\`\`java
+@RestController
+class OrderController {
+  @Autowired OrderMapper orderMapper;
+}
+\`\`\`
+
+**推荐示例**：
+\`\`\`java
+@RestController
+class OrderController {
+  @Autowired OrderService orderService;
+}
+\`\`\`
+`;
+
+const PROJECT_API_CONTRACT_DOC = `# API 契约规则
+
+## PROJECT-API-001 公共 API 变更必须保持兼容或说明迁移策略
+
+\`\`\`yaml
+score: 70
+severity: high
+hardBlock: false
+paths:
+  - backend/**/*.java
+  - frontend/**/*.ts
+  - frontend/**/*.vue
+  - api/**/*.yaml
+  - openapi/**/*.yaml
+\`\`\`
+
+**规则说明**：
+公共 API 的字段、枚举、错误码、分页结构和语义变更必须保持兼容；确实需要破坏兼容时，应提供版本、默认值、迁移窗口或发布说明。
+
+**检查要点**：
+- 是否删除、重命名或改变 response/request 字段含义。
+- 是否改变错误码、状态码、分页字段或枚举值语义。
+- 前端、后端、移动端或外部调用方是否有兼容处理。
+
+**违规风险**：
+破坏性 API 变更会导致调用方运行时失败，线上表现通常是页面异常、数据缺失或流程中断。
+
+**修复建议**：
+保留兼容字段或新增版本化接口；在规则正文、接口文档或提交说明中写清楚迁移方式。
+`;
+
+const PROJECT_DATA_MODEL_DOC = `# 数据模型规则
+
+## PROJECT-DATA-001 数据模型变更必须说明迁移、回滚和灰度策略
+
+\`\`\`yaml
+score: 70
+severity: high
+hardBlock: false
+paths:
+  - db/**
+  - migrations/**
+  - schema/**
+  - **/*.sql
+  - backend/**/*.java
+\`\`\`
+
+**规则说明**：
+表结构、字段含义、索引、状态枚举和历史数据处理方式变更时，必须说明迁移、回滚、灰度兼容和旧数据处理策略。
+
+**检查要点**：
+- DDL 是否有对应迁移脚本和回滚方案。
+- 应用代码是否兼容新旧 schema 同时存在的发布窗口。
+- 历史数据、默认值、空值和唯一约束是否被考虑。
+
+**违规风险**：
+数据模型变更缺少策略会造成发布失败、数据丢失、旧版本不可用或线上数据不一致。
+
+**修复建议**：
+补充迁移脚本、回滚脚本或灰度发布说明，并为关键查询和写入路径补充回归验证。
+`;
+
+const DIY_AUTH_DOC = `# DIY 鉴权规则
+
+## DIY-AUTH-001 禁止绕过租户边界读取或修改数据
+
+\`\`\`yaml
+score: 90
+severity: critical
+hardBlock: true
+paths:
+  - backend/**/*.java
+  - backend/**/*.kt
+  - frontend/**/*.vue
+  - frontend/**/*.ts
+\`\`\`
+
+**规则说明**：
+所有涉及用户、订单、合同、资金、文件、权限等租户数据的读取、修改、导出和缓存，都必须显式校验租户、组织或数据归属边界。
+
+**检查要点**：
+- 是否只通过 \`id\`、\`userId\`、\`orderId\` 等字段直接查询私有资源。
+- 查询条件、缓存 key、导出任务和异步任务是否缺少 \`tenantId\`、\`orgId\`、\`companyId\` 或等价隔离字段。
+- 是否绕过统一鉴权组件、数据权限组件或服务端归属校验。
+
+**违规风险**：
+违反该规则可能造成水平越权、跨租户数据泄露、客户数据污染或权限体系失效。
+
+**修复建议**：
+从可信上下文获取当前租户和操作者身份，在服务端强制校验资源归属，并为越权访问补充失败测试。
+
+**不推荐示例**：
+\`\`\`java
+orderMapper.selectById(orderId);
+\`\`\`
+
+**推荐示例**：
+\`\`\`java
+orderMapper.selectByIdAndTenantId(orderId, currentTenantId);
+\`\`\`
+`;
+
+const DIY_PAYMENT_DOC = `# DIY 支付规则
+
+## DIY-PAYMENT-001 资金状态变更必须保证幂等和一致性
+
+\`\`\`yaml
+score: 95
+severity: critical
+hardBlock: true
+paths:
+  - backend/**/*.java
+  - backend/**/*.kt
+  - db/**
+  - migrations/**
+\`\`\`
+
+**规则说明**：
+支付、退款、对账、余额、积分、优惠券和库存扣减等资金或准资金路径，必须具备幂等键、状态机约束、事务边界和失败补偿策略。
+
+**检查要点**：
+- 是否存在重复回调、重复提交或并发请求导致重复扣款、重复退款、重复发券。
+- 状态流转是否只能从合法前置状态进入目标状态。
+- 数据库写入、消息发送和外部支付调用是否有一致性策略。
+
+**违规风险**：
+资金链路缺少幂等和一致性会造成资损、错账、重复履约或对账失败。
+
+**修复建议**：
+增加业务幂等键、唯一约束、状态机校验、事务边界和补偿任务，并补充重复请求和并发场景测试。
+`;
+
+const DIY_LOGGING_DOC = `# DIY 日志规则
+
+## DIY-LOG-001 审计日志必须保留关键上下文且敏感字段脱敏
+
+\`\`\`yaml
+score: 70
+severity: high
+hardBlock: false
+paths:
+  - backend/**/*.java
+  - backend/**/*.kt
+  - frontend/**/*.ts
+  - frontend/**/*.vue
+\`\`\`
+
+**规则说明**：
+权限、资金、配置、数据导出、批量操作等高风险路径必须保留可追踪审计日志，同时不得输出明文密码、Token、身份证、银行卡、手机号全量等敏感信息。
+
+**检查要点**：
+- 是否删除了操作者、资源 ID、结果、失败原因、traceId 等审计上下文。
+- 日志、异常、前端状态和导出文件中是否出现敏感明文。
+- 是否能根据日志追踪一次高风险操作的发起人、目标资源和处理结果。
+
+**违规风险**：
+审计缺失会导致事故无法追踪；敏感明文日志会造成合规和安全风险。
+
+**修复建议**：
+保留必要审计字段，对敏感字段做脱敏、哈希或删除，并为高风险路径统一接入审计组件。
+`;
+
 export const DEFAULT_DOCS = {
+  'docs/RULES.md': RULES_GUIDE,
   'docs/default/java.md': renderDoc('Java 默认审核规则', javaRules),
   'docs/default/vue.md': renderDoc('Vue 默认审核规则', vueRules),
   'docs/default/mysql.md': renderDoc('MySQL 默认审核规则', mysqlRules),
@@ -296,10 +625,12 @@ export const DEFAULT_DOCS = {
   'docs/default/drools.md': renderDoc('Drools 默认审核规则', droolsRules),
   'docs/default/security.md': renderDoc('跨技术栈安全默认审核规则', securityRules),
   'docs/default/workflow.md': renderDoc('工程流程默认审核规则', workflowRules),
-  'docs/project/architecture.md': '# 项目架构规则\n\n在这里补充本项目的架构分层、模块边界和依赖方向规则。\n',
-  'docs/project/api-contract.md': '# API 契约规则\n\n在这里补充本项目的接口兼容性、字段命名、错误码和版本策略。\n',
-  'docs/project/data-model.md': '# 数据模型规则\n\n在这里补充本项目的数据模型、状态流转、迁移和一致性规则。\n',
-  'docs/diy/auth.md': '# DIY 鉴权规则\n\n在这里补充本项目最高优先级的鉴权、租户和权限规则。\n',
-  'docs/diy/payment.md': '# DIY 支付规则\n\n在这里补充本项目最高优先级的资金、支付、退款和对账规则。\n',
-  'docs/diy/logging.md': '# DIY 日志规则\n\n在这里补充本项目最高优先级的日志、审计和脱敏规则。\n',
+  'docs/project/README.md': PROJECT_README,
+  'docs/project/architecture.md': PROJECT_ARCHITECTURE_DOC,
+  'docs/project/api-contract.md': PROJECT_API_CONTRACT_DOC,
+  'docs/project/data-model.md': PROJECT_DATA_MODEL_DOC,
+  'docs/diy/README.md': DIY_README,
+  'docs/diy/auth.md': DIY_AUTH_DOC,
+  'docs/diy/payment.md': DIY_PAYMENT_DOC,
+  'docs/diy/logging.md': DIY_LOGGING_DOC,
 };
