@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { formatCliError, routeCommand } from '../src/cli.js';
+import { makeInitializedWorkspace } from './helpers/workspace.js';
 
 test('routeCommand returns help for --help', async () => {
   const result = await routeCommand(['--help'], { cwd: process.cwd(), env: {}, stdout: [] });
@@ -32,4 +33,12 @@ test('formatCliError translates common runtime errors', () => {
   assert.match(formatCliError(Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })), /缺少必要文件/);
   assert.match(formatCliError(new Error('Command failed: git rev-parse --show-toplevel')), /Git 命令执行失败/);
   assert.match(formatCliError(new Error('boom')), /执行失败：boom/);
+});
+
+test('routeCommand reports OpenMole bad-smell status in Chinese', async () => {
+  const { dir } = await makeInitializedWorkspace({ prefix: 'gpr-cli-bdr-status-' });
+  const result = await routeCommand(['bdr', 'status'], { cwd: dir, env: {}, stdout: { write: () => {} }, stdin: { isTTY: false } });
+
+  assert.equal(result.exitCode, 0);
+  assert.match(result.output, /坏味道检测包：openmole 0\.8\.2/);
 });

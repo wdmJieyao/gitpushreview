@@ -27,14 +27,28 @@ test('runDoctor accepts apiKey from reviewmodel config', async () => {
   assert.equal(apiKeyCheck.detail, '配置文件中的 apiKey');
 });
 
+test('runDoctor reports effective review mode', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-doctor-mode-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+  fs.writeFileSync(path.join(dir, '.gitpushreview', 'config', 'review-mode.json'), '{"mode":"log"}\n', 'utf8');
+
+  const report = runDoctor({ cwd: dir, env: {} });
+  const modeCheck = report.checks.find((check) => check.name === 'reviewMode');
+
+  assert.equal(modeCheck.ok, true);
+  assert.match(modeCheck.detail, /log/);
+});
+
 test('renderDoctor uses Chinese labels', () => {
   const text = renderDoctor({
     checks: [
       { ok: true, name: 'node', detail: '20.0.0' },
+      { ok: true, name: 'reviewMode', detail: 'normal' },
       { ok: false, name: 'workspace', detail: 'missing' },
     ],
   });
 
   assert.match(text, /通过 Node 版本: 20.0.0/);
+  assert.match(text, /通过 审核模式: normal/);
   assert.match(text, /失败 工作目录: missing/);
 });

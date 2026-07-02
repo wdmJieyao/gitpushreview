@@ -111,8 +111,9 @@ test('runReview downgrades hard model findings when the matched rule is soft-onl
   await initWorkspace({ cwd: dir, installHook: false });
   const result = await runReview({
     cwd: dir,
-    diff: 'diff --git a/src/main/resources/application.yml b/src/main/resources/application.yml\n+management.endpoints.web.exposure.include: "*"\n',
-    files: ['src/main/resources/application.yml'],
+    diff: 'diff --git a/src/main/java/App.java b/src/main/java/App.java\n+management.endpoints.web.exposure.include("*");\n',
+    files: ['src/main/java/App.java'],
+    fileContents: { 'src/main/java/App.java': 'class App { void expose(){ management.endpoints.web.exposure.include("*"); } }\n' },
     modelInvoker: async () =>
       '{"findings":[{"source":"default","ruleId":"DEFAULT-JAVA-SPR-005","score":85,"weightedScore":85,"blocking":"hard","title":"Actuator 暴露","severity":"critical"}]}',
     env: { GITPUSHREVIEW_API_KEY: 'test' },

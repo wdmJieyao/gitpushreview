@@ -6,8 +6,9 @@ GitPushReview 是一个 Git 提交前代码审核插件。它会在 `git commit`
 
 - AI 是最终复审和打分者。
 - 静态层只做路由、证据提取和上下文增强，不直接决定提交是否通过。
-- BDR 可以独立升级，默认规则和项目规则用 Markdown 维护。
+- 坏味道检测上下文可以独立升级，当前内置 `openmole 0.8.2`，默认规则和项目规则用 Markdown 维护。
 - 规则命中后按分数和权重计算风险，达到阈值后软拦截或强拦截。
+- 所有功能变更必须配套完善的案例测试，覆盖主流程、失败/边界场景，以及相关模式或权限差异。
 
 ## 快速开始
 
@@ -59,11 +60,12 @@ gitpushreview init
       logging.md
   config/
     reviewmodel.json
+    review-mode.json
   vendor/
     bdr/
 ```
 
-如果当前目录是 Git 仓库，`init` 会安装 `.git/hooks/pre-commit`，以后 `git commit` 会自动触发审核。
+如果当前目录是 Git 仓库，`init` 会安装 `.git/hooks/pre-commit`，以后 `git commit` 会自动触发审核。没有管理员权限或 hook 无法写入时，初始化仍会完成，并输出仓库本地手动检查路径。已有 hook 默认保留，只有显式使用 `--force` 才会替换。
 
 手动审核已暂存变更：
 
@@ -83,6 +85,27 @@ gitpushreview explain --staged
 ```bash
 gitpushreview doctor
 ```
+
+查看坏味道检测上下文版本：
+
+```bash
+gitpushreview bdr status
+```
+
+## 审核模式配置
+
+编辑 `.gitpushreview/config/review-mode.json`：
+
+```json
+{
+  "mode": "normal",
+  "description": "skip=永久跳过检查；log=只输出日志不拦截；normal=正常审核并按结果拦截"
+}
+```
+
+- `normal`：正常审核，不满足条件时拦截；缺失配置时默认使用该模式。
+- `skip`：永久跳过检查，不读取暂存 diff，不调用模型，也不会拦截。
+- `log`：发起审核并输出日志/JSON，但即使发现问题也不会拦截。
 
 ## 模型配置
 
@@ -173,7 +196,10 @@ AI 最终复审并返回 findings
       |
       v
 统一计分和拦截
+  - 先过滤模型 findings：ruleId 必须属于本次候选规则或确定性证据 ruleId
+  - 候选集外 findings 写入 rejectedFindings，只做诊断，不参与计分
   - totalScore = findings.weightedScore 之和
+  - SKIPPED：配置跳过，未发起审核
   - PASS：允许提交
   - SOFT_BLOCK：用户确认后可继续
   - HARD_BLOCK：必须整改
@@ -216,7 +242,7 @@ evidencePatterns:
 - `docs/default/*.md`：插件内置默认规则，覆盖 Java、Vue、Python、MySQL、Oracle、PostgreSQL、OceanBase、Redis、RabbitMQ、Drools、安全、流程、SQLFluff。
 - `docs/project/*.md`：项目级规则，例如架构分层、API 契约、数据模型。
 - `docs/diy/*.md`：最高优先级规则，例如鉴权、资金、审计、生产红线。
-- `vendor/bdr`：BDR 坏味道检测器上下文。
+- `vendor/bdr`：坏味道检测上下文，当前固定目标为 `openmole 0.8.2`，来源为 `https://github.com/agiledon/bdr.git` main，规划时记录的 revision 为 `0acd889777f175c46efec2be20ae3ed538ccbb3e`。
 
 新增规则文件后，需要把路径加入 `rules-index.md`：
 

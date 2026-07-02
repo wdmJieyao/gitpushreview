@@ -1,15 +1,16 @@
+import os from 'os';
 import path from 'path';
 import { readJson, writeJsonWithBackup } from '../lib/json-config.js';
 
 export function installOpenCode({ packageRoot, targetDir, global, dryRun }) {
-  const pluginPath = path.join(packageRoot, '.opencode', 'plugins', 'bdr.js');
-  const configPath = global
-    ? path.join(process.env.HOME || '', '.config', 'opencode', 'opencode.json')
-    : path.join(targetDir, 'opencode.json');
-
   if (!global && !targetDir) {
     throw new Error('targetDir required for project-level OpenCode config');
   }
+
+  const pluginPath = path.join(packageRoot, '.opencode', 'plugins', 'openmole.js');
+  const configPath = global
+    ? path.join(os.homedir(), '.config', 'opencode', 'opencode.json')
+    : path.join(targetDir, 'opencode.json');
 
   const existing = readJson(configPath);
   const plugins = Array.isArray(existing.plugin) ? [...existing.plugin] : [];

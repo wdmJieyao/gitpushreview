@@ -5,3 +5,14 @@
 *.tar.bz2
 *.tar.xz
 gitpushreview-*.tgz
+node_modules/
+dist/
+build/
+*.log
+.env*
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/

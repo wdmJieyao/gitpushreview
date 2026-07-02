@@ -1,12 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolveApiKey } from './model/client.js';
+import { loadReviewMode } from './review/mode.js';
 
 const CHECK_LABELS = {
   node: 'Node 版本',
   workspace: '工作目录',
   modelConfig: '大模型配置',
   apiKey: 'API 密钥',
+  reviewMode: '审核模式',
   bdr: 'BDR 检测器',
 };
 
@@ -22,11 +24,18 @@ export function runDoctor({ cwd, env }) {
   const apiKeyDetail = model?.apiKey
     ? '配置文件中的 apiKey'
     : model?.apiKeyEnv || '缺少大模型配置';
+  let reviewMode;
+  try {
+    reviewMode = loadReviewMode(cwd);
+  } catch (error) {
+    reviewMode = { mode: 'invalid', message: error.message, invalid: true };
+  }
   const checks = [
     { name: 'node', ok: Number(process.versions.node.split('.')[0]) >= 18, detail: process.versions.node },
     { name: 'workspace', ok: fs.existsSync(workspace), detail: workspace },
     { name: 'modelConfig', ok: fs.existsSync(modelPath), detail: modelPath },
     { name: 'apiKey', ok: Boolean(apiKey), detail: apiKeyDetail },
+    { name: 'reviewMode', ok: !reviewMode.invalid, detail: `${reviewMode.mode} - ${reviewMode.message}` },
     { name: 'bdr', ok: fs.existsSync(path.join(workspace, 'vendor', 'bdr')), detail: path.join(workspace, 'vendor', 'bdr') },
   ];
 
@@ -46,6 +55,6 @@ export function readBdrStatus(cwd) {
   const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
   return {
     exists: true,
-    text: `BDR 包：${pkg.name || '未知'} ${pkg.version || '未知'}\n`,
+    text: `坏味道检测包：${pkg.name || '未知'} ${pkg.version || '未知'}\n`,
   };
 }

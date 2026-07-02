@@ -9,7 +9,7 @@ import {
   needsReinstall,
   installIdes,
 } from '../lib/ide-install.js';
-import { printInstallSummary } from '../lib/summary.js';
+import { printInstallSummary, notify } from '../lib/summary.js';
 import { mergeGitignoreSnippet } from '../workspace/gitignore.js';
 import { isInteractiveWelcome, showWelcome } from '../prompts/welcome.js';
 
@@ -108,7 +108,7 @@ export async function runInit(argv, { skipWelcome = false } = {}) {
   });
 
   if (ws.extended) {
-    console.log('BDR 已初始化，正在追加 IDE 配置…');
+    notify('OpenMole 已初始化，正在追加 IDE 配置…');
   }
 
   let ides = await resolveSelectedIdes(opts);
@@ -142,7 +142,7 @@ export async function runInit(argv, { skipWelcome = false } = {}) {
   const extraLines = ws.extended ? ['(extend mode: existing config preserved)'] : [];
 
   printInstallSummary({
-    title: 'BDR init',
+    title: 'OpenMole init',
     targetDir: opts.targetDir,
     results,
     extraLines,

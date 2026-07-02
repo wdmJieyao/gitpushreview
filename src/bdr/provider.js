@@ -17,7 +17,7 @@ export function loadBdrContext(bdrRoot) {
 
   if (fs.existsSync(skillsRoot)) {
     for (const name of fs.readdirSync(skillsRoot)) {
-      if (!name.startsWith('bdr-')) continue;
+      if (!name.startsWith('bdr-') && !name.startsWith('openmole-')) continue;
       const skillPath = path.join(skillsRoot, name, 'SKILL.md');
       const content = readTextIfExists(skillPath);
       if (content) skills.push({ name, path: skillPath, content });
@@ -34,7 +34,7 @@ export function loadBdrContext(bdrRoot) {
   }).filter((entry) => entry.content);
 
   const text = [
-    `BDR package: ${pkg.name || 'unknown'} ${pkg.version || 'unknown'}`,
+    `Bad-smell package: ${pkg.name || 'unknown'} ${pkg.version || 'unknown'}`,
     ...skills.map((skill) => `\n# ${skill.name}\n${skill.content}`),
     ...optionalFiles.map((file) => `\n# ${file.relative}\n${file.content}`),
   ].join('\n');

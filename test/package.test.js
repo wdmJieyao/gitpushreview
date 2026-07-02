@@ -9,6 +9,13 @@ test('package exposes gitpushreview bin and required files', () => {
   assert.equal(pkg.engines.node, '>=18');
 });
 
+test('vendored bad-smell context is approved OpenMole target', () => {
+  const pkg = JSON.parse(fs.readFileSync('vendor/bdr/package.json', 'utf8'));
+
+  assert.equal(pkg.name, 'openmole');
+  assert.equal(pkg.version, '0.8.2');
+});
+
 test('bin fallback error output is Chinese', () => {
   const bin = fs.readFileSync('bin/gitpushreview.js', 'utf8');
   assert.match(bin, /执行失败/);

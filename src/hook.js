@@ -9,6 +9,8 @@ export async function handleReviewResult(result, { stdin, stdout, json = false, 
     stdout.write(renderReport(result));
   }
 
+  if (result.mode === 'skip' || result.decision.status === 'SKIPPED') return 0;
+  if (result.mode === 'log') return 0;
   if (result.decision.status === 'PASS') return 0;
   if (result.decision.status === 'HARD_BLOCK') return 1;
   if (ci || !stdin.isTTY) return 1;

@@ -6,6 +6,7 @@ import { parseRuleIndex, loadMarkdownRules } from '../rules/index.js';
 import { decideReview } from './decision.js';
 import { buildReviewMessages } from './prompt.js';
 import { parseReviewJson } from './result.js';
+import { splitFindingsByCandidateSet } from './findings.js';
 import { runDeterministicGates } from '../gates/deterministic.js';
 import { routeRulesForFiles } from '../rules/router.js';
 import { runRuleEvidence } from '../evidence/rule-evidence.js';
@@ -19,21 +20,6 @@ function parsePolicy(markdown) {
   const soft = yaml.match(/softBlockScore:\s*(\d+)/)?.[1] || '60';
   const hard = yaml.match(/hardBlockScore:\s*(\d+)/)?.[1] || '90';
   return { softBlockScore: Number(soft), hardBlockScore: Number(hard), raw: markdown };
-}
-
-function normalizeFindings(findings, rules) {
-  const rulesById = new Map(rules.map((rule) => [rule.id, rule]));
-  return findings.map((finding) => {
-    const rule = rulesById.get(finding.ruleId);
-    const blocking = rule && rule.hardBlock === false && finding.blocking === 'hard'
-      ? 'soft'
-      : finding.blocking;
-    return {
-      ...finding,
-      blocking,
-      weightedScore: finding.weightedScore ?? Number(finding.score || 0),
-    };
-  });
 }
 
 export async function runReview({ cwd, diff, files, fileContents = {}, modelInvoker, env }) {
@@ -55,6 +41,10 @@ export async function runReview({ cwd, diff, files, fileContents = {}, modelInvo
   const routedRules = routeRulesForFiles({ rules: markdownRules, routes: gateResult.routes, fileContents });
   const staticEvidence = runRuleEvidence({ rules: routedRules.rules, routes: gateResult.routes, fileContents, ruleRouting: routedRules.diagnostics });
   const staticFindings = [...gateResult.findings, ...staticEvidence];
+  const candidateRules = [
+    ...routedRules.rules,
+    ...staticFindings.map((finding) => ({ id: finding.ruleId })),
+  ];
   const messages = buildReviewMessages({ reviewAgent, policy: policy.raw, bdrContext, rules: routedRules.rules, diff, files, deterministicFindings: staticFindings, routes: gateResult.routes, ruleRouting: routedRules.diagnostics });
   const invoke = modelInvoker || ((input) => callReviewModel({
     config: modelConfig,
@@ -63,9 +53,10 @@ export async function runReview({ cwd, diff, files, fileContents = {}, modelInvo
   }));
   const responseText = await invoke({ messages, modelConfig });
   const parsed = parseReviewJson(responseText);
-  const findings = normalizeFindings(parsed.findings, markdownRules);
+  const { accepted: findings, rejected: rejectedFindings } = splitFindingsByCandidateSet(parsed.findings, candidateRules, markdownRules);
   return {
     findings,
+    rejectedFindings,
     decision: decideReview(findings, policy),
     routes: gateResult.routes,
     ruleRouting: routedRules.diagnostics,

@@ -7,6 +7,8 @@ import { DEFAULT_DOCS, RULES_INDEX } from '../src/templates.js';
 import { initWorkspace } from '../src/workspace.js';
 import { parseRuleIndex, loadMarkdownRules } from '../src/rules/index.js';
 import { parseMarkdownRules } from '../src/rules/markdown.js';
+import { buildCapabilityContext } from '../src/routes/capability-context.js';
+import { routeRulesForFiles } from '../src/rules/router.js';
 
 const expectedDefaultFiles = [
   '../docs/default/java.md',
@@ -504,4 +506,21 @@ test('initialized workspace can load all default rules end-to-end', async () => 
 
   const rules = loadMarkdownRules({ workspaceRoot, source });
   assert.equal(rules.length, 228);
+});
+
+test('default rule routing records match reasons for at least 20 selected rules', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-default-routing-reasons-'));
+  await initWorkspace({ cwd: dir, force: false, installHook: false });
+  const workspaceRoot = path.join(dir, '.gitpushreview');
+  const source = defaultSourceFrom(fs.readFileSync(path.join(workspaceRoot, 'agent', 'rules-index.md'), 'utf8'));
+  const rules = loadMarkdownRules({ workspaceRoot, source });
+  const route = buildCapabilityContext({ file: 'src/main/java/com/acme/App.java', content: 'class App {}' });
+  const routed = routeRulesForFiles({ rules, routes: [route], fileContents: { [route.file]: 'class App {}' } });
+  const matched = routed.diagnostics.decisions.filter((decision) => decision.matched).slice(0, 20);
+
+  assert.equal(matched.length, 20);
+  for (const decision of matched) {
+    assert.match(decision.matchReason, /src\/main\/java\/com\/acme\/App\.java:/);
+    assert.ok(decision.matchReason.includes('path') || decision.matchReason.includes('no-path-scope'));
+  }
 });
