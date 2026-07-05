@@ -71,3 +71,32 @@ test('callReviewModel throws Chinese error when request fails', async () => {
     /模型请求失败/,
   );
 });
+
+test('callReviewModel aborts request and throws Chinese error when timeoutMs elapses', async () => {
+  let signal = null;
+
+  await assert.rejects(
+    () => callReviewModel({
+      config: {
+        baseUrl: 'https://model.example/v1',
+        apiKey: 'config-key',
+        model: 'demo-model',
+        timeoutMs: 5,
+      },
+      messages: [],
+      fetchImpl: async (url, init) => {
+        signal = init.signal;
+        assert.ok(signal);
+
+        return new Promise((resolve, reject) => {
+          signal.addEventListener('abort', () => {
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          }, { once: true });
+        });
+      },
+    }),
+    /模型请求超时：5ms/,
+  );
+
+  assert.equal(signal.aborted, true);
+});

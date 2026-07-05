@@ -151,6 +151,11 @@ The API key is resolved from `config.apiKey` first, then from
 `env[config.apiKeyEnv]`. The default environment variable is
 `GITPUSHREVIEW_API_KEY`.
 
+The client uses Node's built-in `fetch` and `AbortController`. When
+`config.timeoutMs` is a positive number, the request is aborted after that
+duration and reported as a Chinese timeout diagnostic instead of waiting
+indefinitely for a slow upstream model.
+
 The model response must be JSON, optionally inside a `json` fenced block. The top
 level must contain a `findings` array. Each finding is expected to include:
 
@@ -415,6 +420,7 @@ Common test seams:
 - `routeCommand()` avoids process spawning.
 - `modelInvoker` stubs model review in runner tests.
 - `fetchImpl` stubs HTTP in model client tests.
+- `AbortController` timeout behavior is verified at the model client boundary.
 - temporary directories model initialized workspaces.
 - temporary Git repositories validate staged snapshot behavior.
 
@@ -435,6 +441,7 @@ Important regression areas:
 - bin: `gitpushreview -> ./bin/gitpushreview.js`
 - type: `module`
 - engine: Node `>=18`
+- runtime APIs: Node standard library, built-in `fetch`, and `AbortController`
 - test script: `node --test`
 
 Before release or install-distribution changes, run:

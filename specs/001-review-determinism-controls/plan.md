@@ -23,9 +23,9 @@ temporary workspaces) to cover mode behavior and repeatability.
 **Language/Version**: Node.js ESM, package requires Node `>=18`; local planning
 environment is Node `v22.22.2`.
 
-**Primary Dependencies**: Node standard library, OpenAI-compatible chat
-completion endpoint, vendored bad-smell context. Current vendored package is
-`agile-bdr@0.5.0`; approved fixed target for this plan is `openmole@0.8.2` from
+**Primary Dependencies**: Node standard library, built-in `fetch`,
+`AbortController`, OpenAI-compatible chat completion endpoint, and vendored
+bad-smell context. Current vendored package is `openmole@0.8.2` from
 `https://github.com/agiledon/bdr.git` main.
 
 **Storage**: Project-local files under `.gitpushreview/`, especially generated

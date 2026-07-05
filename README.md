@@ -128,7 +128,7 @@ gitpushreview bdr status
 - `apiKey`：本机直接配置的密钥，优先级最高，不建议提交到仓库。
 - `apiKeyEnv`：当 `apiKey` 为空时，从该环境变量读取密钥。
 - `model`：模型名称。
-- `timeoutMs`：模型请求超时时间配置。
+- `timeoutMs`：模型请求超时时间。到期后会中断本次 `/chat/completions` 请求，并输出中文超时错误。
 
 Windows 永久用户环境变量：
 
