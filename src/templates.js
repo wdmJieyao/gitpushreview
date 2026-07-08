@@ -416,15 +416,19 @@ function renderList(items) {
 
 function inferCapabilities(rule) {
   const id = rule.id || '';
-  if (id.includes('-MYSQL-')) return ['persistence.sql', 'persistence.sql.mysql'];
-  if (id.includes('-ORACLE-')) return ['persistence.sql', 'persistence.sql.oracle'];
-  if (id.includes('-POSTGRESQL-')) return ['persistence.sql', 'persistence.sql.postgresql'];
-  if (id.includes('-OCEANBASE-')) return ['persistence.sql', 'persistence.sql.oceanbase'];
+  if (id.includes('-MYSQL-')) return ['persistence.sql'];
+  if (id.includes('-ORACLE-')) return ['persistence.sql'];
+  if (id.includes('-POSTGRESQL-')) return ['persistence.sql'];
+  if (id.includes('-OCEANBASE-')) return ['persistence.sql'];
   if (id.includes('-REDIS-')) return ['middleware.redis'];
-  if (id.includes('-RABBITMQ-')) return ['middleware.mq', 'middleware.mq.rabbitmq'];
+  if (id.includes('-RABBITMQ-')) return ['middleware.mq'];
   if (id.includes('-DROOLS-')) return ['rules.drools'];
-  if (id.includes('-VUE-') || id.includes('-FE-')) return ['frontend.vue'];
+  if (id.includes('-VUE-')) return ['frontend.vue'];
+  if (id.includes('-FE-TS-')) return ['frontend.typescript', 'frontend.vue'];
+  if (id.includes('-FE-')) return ['frontend.javascript', 'frontend.typescript', 'frontend.vue'];
   if (id.includes('-PY-') || id.includes('-PYTHON-')) return ['language.python'];
+  if (id.includes('-MYBATIS-')) return ['persistence.mybatis'];
+  if (id.includes('-SPR-')) return ['backend.spring'];
   if (id.includes('-JAVA-')) return ['language.java'];
   if (id.includes('-SQLFLUFF-')) return ['persistence.sql', 'workflow.db-migration'];
   if (id.includes('-SEC-')) return ['common.core', 'security.secrets'];
@@ -432,9 +436,26 @@ function inferCapabilities(rule) {
   return ['common.core'];
 }
 
+function inferRequiredCapabilities(rule) {
+  const id = rule.id || '';
+  // Keep legacy capabilities broad but make high-risk default families require
+  // concrete evidence before they enter the model candidate set.
+  if (id.includes('-MYSQL-')) return ['persistence.sql.mysql'];
+  if (id.includes('-ORACLE-')) return ['persistence.sql.oracle'];
+  if (id.includes('-POSTGRESQL-')) return ['persistence.sql.postgresql'];
+  if (id.includes('-OCEANBASE-')) return ['persistence.sql.oceanbase'];
+  if (id.includes('-RABBITMQ-')) return ['middleware.mq.rabbitmq'];
+  if (id.includes('-DROOLS-')) return ['rules.drools'];
+  if (id.includes('-VUE-')) return ['frontend.vue'];
+  if (id.includes('-MYBATIS-')) return ['persistence.mybatis'];
+  if (id.includes('-SPR-')) return ['backend.spring'];
+  return [];
+}
+
 function renderRule(rule) {
   const paths = rule.paths.map((item) => `  - "${item}"`).join('\n');
   const capabilities = inferCapabilities(rule).map((item) => `  - ${item}`).join('\n');
+  const requiredCapabilities = inferRequiredCapabilities(rule).map((item) => `  - ${item}`).join('\n');
   return `## ${rule.id} ${rule.title}
 
 \`\`\`yaml
@@ -445,6 +466,8 @@ paths:
 ${paths}
 capabilities:
 ${capabilities}
+requiredCapabilities:
+${requiredCapabilities}
 \`\`\`
 
 **规则说明**：${rule.desc}
@@ -765,6 +788,8 @@ paths:
 capabilities:
   - language.java
   - frontend.vue
+requiredCapabilities:
+  - persistence.sql.mysql
 signalPaths:
   - backend/**/*Payment*.java
 signalContent:
@@ -790,6 +815,7 @@ allowUnknownExpansion: false
 - \`hardBlock\`：是否单条命中就强拦截。明显异常、高风险安全问题、资金问题、越权问题建议设置为 \`true\`。
 - \`paths\`：规则适用文件范围。必须尽量精确，不建议使用 \`**/*\` 这种全局兜底。
 - \`capabilities\`：规则适用能力域，例如 \`language.java\`、\`frontend.vue\`、\`persistence.sql\`、\`middleware.mq.kafka\`。静态层会根据文件路径、内容信号和项目画像生成能力标签。
+- \`requiredCapabilities\`：必须全部满足的能力域，用于数据库方言、Vue 专属、MQ vendor 等需要精确信号的规则。旧 \`capabilities\` 仍是“任意一个命中即可”的兼容语义。
 - \`signalPaths\`：补充路由路径信号，只用于证明 unknown 文件可能适用该规则，不替代普通文件的 \`paths + capabilities\` 匹配。
 - \`signalContent\`：补充路由内容信号，可以填写正则片段，例如 \`KafkaTemplate\`、\`payment callback\`、\`tenantId\`。
 - \`evidencePatterns\`：静态证据提取模式，格式为 \`证据ID|正则|中文证据说明\`。命中后只作为 AI 复审线索，\`score=0\` 且不直接拦截。

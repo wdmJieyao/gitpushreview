@@ -167,8 +167,8 @@ export GITPUSHREVIEW_API_KEY=...
       |
       v
 规则驱动候选过滤 Rule Router
-  - 普通已识别文件：必须满足 paths + capabilities
-  - 旧规则：没有 capabilities 时按 paths 兼容
+  - 普通已识别文件：必须满足 paths + capabilities + requiredCapabilities
+  - 旧规则：没有 capabilities/requiredCapabilities 时按 paths 兼容
   - common 规则：可进入 common.core / common.unknown-limited
   - unknown 文件：默认只进公共兜底，不全量扇出
   - unknown 扩展：只有 allowUnknownExpansion=true 且 signalPaths/signalContent 命中才进入候选
@@ -198,6 +198,7 @@ AI 最终复审并返回 findings
 统一计分和拦截
   - 先过滤模型 findings：ruleId 必须属于本次候选规则或确定性证据 ruleId
   - 候选集外 findings 写入 rejectedFindings，只做诊断，不参与计分
+  - JSON 输出 candidateRuleIds 和 candidateSummary，便于复现路由结果
   - totalScore = findings.weightedScore 之和
   - SKIPPED：配置跳过，未发起审核
   - PASS：允许提交
@@ -213,6 +214,9 @@ AI 最终复审并返回 findings
 
 - 普通 `UserService.java`：进入 `language.java`、`common.core`。
 - `OrderMapper.xml`：进入 `common.xml`、`persistence.mybatis`、`persistence.sql`。
+- 普通 MyBatis XML：不会因为有 SQL 片段就自动进入 MySQL、Oracle、PostgreSQL、OceanBase 专有规则。
+- 带有 `AUTO_INCREMENT` 等明确方言证据的 SQL：进入 MySQL 规则，但不会进入 Oracle/PostgreSQL/OceanBase 规则。
+- 普通 `.js`/`.ts`：进入通用 JavaScript/TypeScript 或前端规则；只有 `.vue` 文件或明确 Vue 证据才进入 Vue 专有规则。
 - Kafka 生产配置：进入 `common.config`、`middleware.mq`、`middleware.mq.kafka`。
 - 无法识别的文件：进入 `common.unknown-limited`，不会扇出 MySQL、Oracle、Drools、Redis、RabbitMQ 等专有规则。
 
@@ -223,6 +227,7 @@ paths:
   - src/main/resources/**/*.yml
 capabilities:
   - middleware.mq
+requiredCapabilities:
   - middleware.mq.kafka
 signalContent:
   - spring\.kafka
@@ -231,7 +236,7 @@ evidencePatterns:
   - kafka-auto-create|auto-create\s*:\s*true|检测到 Kafka 自动创建 Topic 配置
 ```
 
-普通已识别文件仍必须满足 `paths + capabilities` 才会进入 AI 候选规则上下文，`signalPaths` 和 `signalContent` 只作为补充证据，不会绕过基础适用范围。没有 `capabilities` 的旧规则仍按 `paths` 兼容运行。识别不到能力的 unknown-limited 文件默认只允许公共规则进入；如果某条规则显式设置 `allowUnknownExpansion: true`，并且 `signalPaths` 或 `signalContent` 命中，才允许作为低置信扩展候选进入 AI 复审。`evidencePatterns` 只提取静态证据线索，不直接决定 blocking。
+普通已识别文件仍必须满足 `paths + capabilities + requiredCapabilities` 才会进入 AI 候选规则上下文。`capabilities` 是兼容旧规则的 OR 语义，命中任意一个即可；`requiredCapabilities` 是严格 AND 语义，列出的能力必须全部存在，推荐用于数据库方言、MQ 厂商、Vue 专有规则和 Java 子域规则。`signalPaths` 和 `signalContent` 只作为补充证据，不会绕过基础适用范围。没有 `capabilities` 和 `requiredCapabilities` 的旧规则仍按 `paths` 兼容运行。识别不到能力的 unknown-limited 文件默认只允许公共规则进入；如果某条规则显式设置 `allowUnknownExpansion: true`，并且 `signalPaths` 或 `signalContent` 命中，才允许作为低置信扩展候选进入 AI 复审。`evidencePatterns` 只提取静态证据线索，不直接决定 blocking。
 
 ## 规则目录
 
@@ -283,6 +288,8 @@ capabilities:
 ```
 
 完整写法见初始化后的 `.gitpushreview/docs/RULES.md`。
+
+`gitpushreview explain --json` 和 `gitpushreview check --staged --json` 会输出 `candidateRuleIds` 和 `candidateSummary`。其中 `candidateSummary` 包含来源统计、能力统计、主要命中原因、主要跳过原因和重复规则 ID 诊断。`explain --staged` 使用暂存区 blob；`explain <file>` 是工作区文件诊断，用于排查某个文件当前内容会如何路由。
 
 ## 计分机制
 

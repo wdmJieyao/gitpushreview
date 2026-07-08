@@ -111,9 +111,11 @@ test('runReview downgrades hard model findings when the matched rule is soft-onl
   await initWorkspace({ cwd: dir, installHook: false });
   const result = await runReview({
     cwd: dir,
-    diff: 'diff --git a/src/main/java/App.java b/src/main/java/App.java\n+management.endpoints.web.exposure.include("*");\n',
+    diff: 'diff --git a/src/main/java/App.java b/src/main/java/App.java\n+import org.springframework.boot.SpringApplication;\n+management.endpoints.web.exposure.include("*");\n',
     files: ['src/main/java/App.java'],
-    fileContents: { 'src/main/java/App.java': 'class App { void expose(){ management.endpoints.web.exposure.include("*"); } }\n' },
+    fileContents: {
+      'src/main/java/App.java': 'import org.springframework.boot.SpringApplication;\nclass App { void expose(){ management.endpoints.web.exposure.include("*"); } }\n',
+    },
     modelInvoker: async () =>
       '{"findings":[{"source":"default","ruleId":"DEFAULT-JAVA-SPR-005","score":85,"weightedScore":85,"blocking":"hard","title":"Actuator 暴露","severity":"critical"}]}',
     env: { GITPUSHREVIEW_API_KEY: 'test' },

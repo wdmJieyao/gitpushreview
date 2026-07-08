@@ -39,3 +39,34 @@ test('capability context detects Python Vue Redis Drools and unknown-limited fal
   assert.ok(unknown.capabilities.includes('common.core'));
   assert.equal(unknown.capabilities.includes('persistence.sql'), false);
 });
+
+
+test('capability context keeps generic SQL separate from concrete dialects', () => {
+  const generic = buildCapabilityContext({
+    file: 'src/main/resources/mapper/OrderMapper.xml',
+    content: '<select id="find">select * from orders where id = #{id}</select>',
+  });
+  const mysql = buildCapabilityContext({
+    file: 'db/mysql/V1__orders.sql',
+    content: 'create table orders(id bigint auto_increment primary key) engine=InnoDB;',
+  });
+
+  assert.ok(generic.capabilities.includes('persistence.sql'));
+  assert.deepEqual(generic.dialectCandidates, ['generic']);
+  assert.equal(generic.capabilities.includes('persistence.sql.mysql'), false);
+  assert.equal(generic.capabilities.includes('persistence.sql.oracle'), false);
+  assert.ok(mysql.capabilities.includes('persistence.sql.mysql'));
+  assert.equal(mysql.capabilities.includes('persistence.sql.oracle'), false);
+});
+
+
+test('capability context does not classify plain JS and TS files as Vue by default', () => {
+  const plainTs = buildCapabilityContext({ file: 'src/utils/format.ts', content: 'export const format = (x) => String(x);' });
+  const vueSfc = buildCapabilityContext({ file: 'src/pages/Login.vue', content: '<template><div /></template>' });
+  const vueTs = buildCapabilityContext({ file: 'src/components/useLogin.ts', content: 'import { ref } from "vue"; export const useLogin = () => ref(false);' });
+
+  assert.equal(plainTs.capabilities.includes('frontend.vue'), false);
+  assert.ok(plainTs.capabilities.includes('frontend.typescript'));
+  assert.ok(vueSfc.capabilities.includes('frontend.vue'));
+  assert.ok(vueTs.capabilities.includes('frontend.vue'));
+});

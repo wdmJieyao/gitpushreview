@@ -36,3 +36,29 @@ test('runRuleEvidence scans only files matched by the routed rule', () => {
   assert.equal(findings.length, 1);
   assert.equal(findings[0].file, 'docs/payment.rulebook');
 });
+
+
+test('runRuleEvidence emits deterministic static evidence ordering', () => {
+  const input = {
+    rules: [
+      { id: 'RULE-B', title: 'B', evidencePatterns: ['b|beta|检测到 beta'] },
+      { id: 'RULE-A', title: 'A', evidencePatterns: ['a|alpha|检测到 alpha'] },
+    ],
+    routes: [{ file: 'docs/a.rulebook' }, { file: 'docs/b.rulebook' }],
+    fileContents: {
+      'docs/a.rulebook': 'alpha beta',
+      'docs/b.rulebook': 'alpha beta',
+    },
+    ruleRouting: {
+      matchesByRule: {
+        'RULE-B': [{ file: 'docs/b.rulebook', reason: 'signal-content' }],
+        'RULE-A': [{ file: 'docs/a.rulebook', reason: 'signal-content' }],
+      },
+    },
+  };
+
+  const first = runRuleEvidence(input).map((finding) => `${finding.ruleId}:${finding.file}`);
+  const second = runRuleEvidence({ ...input, routes: [...input.routes].reverse() }).map((finding) => `${finding.ruleId}:${finding.file}`);
+
+  assert.deepEqual(second, first);
+});

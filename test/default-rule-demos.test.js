@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_DOCS } from '../src/templates.js';
 import { parseMarkdownRules } from '../src/rules/markdown.js';
+import { buildCapabilityContext } from '../src/routes/capability-context.js';
+import { routeRulesForFiles } from '../src/rules/router.js';
 
 const demoSamples = [
   {
@@ -587,4 +589,23 @@ test('demo enterprise-stack snippets are covered by default rule path scopes', (
       );
     }
   }
+});
+
+
+test('demo frontend routing keeps plain TypeScript out of Vue-specific rules', () => {
+  const rules = allDefaultRules();
+  const plainTs = buildCapabilityContext({
+    file: 'src/utils/format.ts',
+    content: 'export const format = (value) => String(value);',
+  });
+  const vueTs = buildCapabilityContext({
+    file: 'src/api/user.ts',
+    content: 'import { ref } from "vue"; const id = route.query.id as string; const user = await res.json() as User;',
+  });
+  const plainRouted = routeRulesForFiles({ rules, routes: [plainTs], fileContents: { [plainTs.file]: 'export const format = (value) => String(value);' } });
+  const vueRouted = routeRulesForFiles({ rules, routes: [vueTs], fileContents: { [vueTs.file]: 'import { ref } from "vue"; const id = route.query.id as string; const user = await res.json() as User;' } });
+
+  assert.equal(plainRouted.diagnostics.candidateRuleIds.some((id) => id.startsWith('DEFAULT-VUE-')), false);
+  assert.ok(vueRouted.diagnostics.candidateRuleIds.includes('DEFAULT-VUE-ROUTER-001'));
+  assert.ok(vueRouted.diagnostics.candidateRuleIds.includes('DEFAULT-FE-TS-002'));
 });

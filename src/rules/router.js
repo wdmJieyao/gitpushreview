@@ -70,7 +70,11 @@ function normalizeCapability(value) {
   const aliases = {
     java: 'language.java',
     vue: 'frontend.vue',
-    frontend: 'frontend.vue',
+    frontend: 'frontend.javascript',
+    js: 'frontend.javascript',
+    javascript: 'frontend.javascript',
+    ts: 'frontend.typescript',
+    typescript: 'frontend.typescript',
     python: 'language.python',
     config: 'common.config',
     xml: 'common.xml',
@@ -111,6 +115,16 @@ function capabilityMatches(ruleCapabilities, contextCapabilities) {
     : { ok: false, reason: `capability-mismatch:${wanted.join(',')}` };
 }
 
+function requiredCapabilitiesMatch(ruleRequiredCapabilities, contextCapabilities) {
+  const wanted = toArray(ruleRequiredCapabilities).map(normalizeCapability);
+  if (!wanted.length) return { ok: true, reason: 'required-capabilities:none' };
+  const actual = new Set(contextCapabilities.map(normalizeCapability));
+  const missing = wanted.filter((item) => !actual.has(item));
+  return missing.length
+    ? { ok: false, reason: `required-capability-mismatch:${missing.join(',')}` }
+    : { ok: true, reason: `required-capability:${wanted.join(',')}` };
+}
+
 function signalMatches(rule, route, content) {
   const pathSignals = toArray(rule.signalPaths);
   const contentSignals = toArray(rule.signalContent);
@@ -122,22 +136,93 @@ function signalMatches(rule, route, content) {
   return { ok: pathMatched || contentMatched, reason: reasons.join('+') };
 }
 
-function normalReason(rulePaths, capResult, signalResult) {
+function normalReason(rulePaths, capResult, requiredResult, signalResult) {
   const parts = [rulePaths.length ? 'path' : 'no-path-scope', capResult.reason];
+  if (requiredResult.reason !== 'required-capabilities:none') parts.push(requiredResult.reason);
   if (signalResult.ok) parts.push(signalResult.reason);
   return parts.join('+');
 }
 
+function increment(map, key, amount = 1) {
+  if (!key) return;
+  map.set(key, (map.get(key) || 0) + amount);
+}
+
+function sortedObjectFromMap(map) {
+  return Object.fromEntries([...map.entries()].sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function topReasons(reasons) {
+  return [...reasons.entries()]
+    .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))
+    .slice(0, 8)
+    .map(([reason, count]) => `${reason} (${count})`);
+}
+
+function summarizeRouting({ rules, selected, decisions, duplicates }) {
+  const bySource = new Map();
+  const byCapability = new Map();
+  const matchReasons = new Map();
+  const skipReasons = new Map();
+
+  for (const rule of selected) {
+    increment(bySource, rule.file || rule.source || 'unknown');
+    const capabilities = [...toArray(rule.capabilities), ...toArray(rule.requiredCapabilities)];
+    for (const capability of capabilities.length ? capabilities : ['legacy-path-only']) {
+      increment(byCapability, normalizeCapability(capability));
+    }
+  }
+
+  for (const decision of decisions) {
+    if (decision.matched) {
+      for (const match of decision.matches || []) increment(matchReasons, match.reason);
+    } else {
+      for (const skip of decision.skips || []) {
+        for (const reason of String(skip.reason || '').split('+').filter(Boolean)) increment(skipReasons, reason);
+      }
+    }
+  }
+
+  return {
+    totalRules: rules.length,
+    selectedRules: selected.length,
+    excludedRules: Math.max(0, rules.length - selected.length),
+    bySource: sortedObjectFromMap(bySource),
+    byCapability: sortedObjectFromMap(byCapability),
+    topMatchReasons: topReasons(matchReasons),
+    topSkipReasons: topReasons(skipReasons),
+    duplicates,
+  };
+}
+
+function findDuplicates(rules) {
+  const byId = new Map();
+  for (const rule of rules) {
+    const entry = byId.get(rule.id) || [];
+    entry.push(rule.file || rule.source || 'unknown');
+    byId.set(rule.id, entry);
+  }
+  return [...byId.entries()]
+    .filter(([, sources]) => sources.length > 1)
+    .map(([ruleId, sources]) => ({ ruleId, sources: [...new Set(sources)].sort((a, b) => a.localeCompare(b)) }))
+    .sort((a, b) => a.ruleId.localeCompare(b.ruleId));
+}
+
 export function routeRulesForFiles({ rules = [], routes = [], fileContents = {} }) {
-  const routeList = Array.isArray(routes) ? routes : [routes].filter(Boolean);
+  const routeList = (Array.isArray(routes) ? routes : [routes].filter(Boolean))
+    .filter(Boolean)
+    .slice()
+    .sort((a, b) => String(a.file || '').localeCompare(String(b.file || '')));
   const decisions = [];
   const selected = [];
   const seen = new Set();
   const matchesByRule = {};
+  const duplicates = findDuplicates(rules);
 
   for (const rule of rules) {
     const rulePaths = toArray(rule.paths);
     const ruleCapabilities = toArray(rule.capabilities);
+    const requiredCapabilities = toArray(rule.requiredCapabilities);
     const routeMatches = [];
     const routeSkips = [];
 
@@ -145,11 +230,13 @@ export function routeRulesForFiles({ rules = [], routes = [], fileContents = {} 
       const content = fileContents[route.file] || '';
       const pathOk = matchesPath(route.file, rulePaths);
       const capResult = capabilityMatches(ruleCapabilities, route.capabilities || []);
+      const requiredResult = requiredCapabilitiesMatch(requiredCapabilities, route.capabilities || []);
       const signalResult = signalMatches(rule, route, content);
-      const normalMatch = pathOk && capResult.ok;
+      const normalMatch = pathOk && capResult.ok && requiredResult.ok;
       const unknownSignalExpansion = route.unknownLimited
         && !isCommonRule(rule)
         && Boolean(rule.allowUnknownExpansion)
+        && requiredResult.ok
         && signalResult.ok;
 
       const unknownBlocked = route.unknownLimited && !isCommonRule(rule) && !unknownSignalExpansion;
@@ -157,13 +244,14 @@ export function routeRulesForFiles({ rules = [], routes = [], fileContents = {} 
       if ((normalMatch && !unknownBlocked) || unknownSignalExpansion) {
         routeMatches.push({
           file: route.file,
-          reason: unknownSignalExpansion ? signalResult.reason : normalReason(rulePaths, capResult, signalResult),
+          reason: unknownSignalExpansion ? signalResult.reason : normalReason(rulePaths, capResult, requiredResult, signalResult),
           expanded: unknownSignalExpansion,
         });
       } else {
         const reasons = [];
         if (!pathOk) reasons.push('path-mismatch');
         if (!capResult.ok) reasons.push(capResult.reason);
+        if (!requiredResult.ok) reasons.push(requiredResult.reason);
         if (route.unknownLimited && !isCommonRule(rule)) reasons.push('unknown-limited');
         if (!signalResult.ok && (toArray(rule.signalPaths).length || toArray(rule.signalContent).length)) reasons.push('signal-mismatch');
         if (signalResult.ok && !route.unknownLimited && !normalMatch) reasons.push('signal-is-evidence-only');
@@ -186,6 +274,7 @@ export function routeRulesForFiles({ rules = [], routes = [], fileContents = {} 
       paths: rulePaths,
       signalPaths: toArray(rule.signalPaths),
       signalContent: toArray(rule.signalContent),
+      requiredCapabilities,
       allowUnknownExpansion: Boolean(rule.allowUnknownExpansion),
     });
     if (matched && !seen.has(rule.id)) {
@@ -200,6 +289,9 @@ export function routeRulesForFiles({ rules = [], routes = [], fileContents = {} 
       totalRules: rules.length,
       selectedRules: selected.length,
       excludedRules: Math.max(0, rules.length - selected.length),
+      candidateRuleIds: selected.map((rule) => rule.id),
+      candidateSummary: summarizeRouting({ rules, selected, decisions, duplicates }),
+      duplicates,
       matchesByRule,
       decisions,
     },

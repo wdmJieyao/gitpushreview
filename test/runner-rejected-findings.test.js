@@ -9,9 +9,9 @@ test('runReview rejects model findings outside routed candidate rules', async ()
 
   const result = await runReview({
     cwd: dir,
-    diff: 'diff --git a/src/main/java/App.java b/src/main/java/App.java\n+class App {}\n',
-    files: ['src/main/java/App.java'],
-    fileContents: { 'src/main/java/App.java': 'class App {}\n' },
+    diff: 'diff --git a/src/main/resources/application-prod.yml b/src/main/resources/application-prod.yml\n+spring.application.name: app\n+management.endpoints.web.exposure.include: "*"\n',
+    files: ['src/main/resources/application-prod.yml'],
+    fileContents: { 'src/main/resources/application-prod.yml': 'spring.application.name: app\nmanagement.endpoints.web.exposure.include: "*"\n' },
     modelInvoker: async () => modelJson([
       acceptedFinding({ ruleId: 'DEFAULT-JAVA-SPR-005', score: 85, weightedScore: 85, blocking: 'hard' }),
       rejectedFinding({ ruleId: 'DEFAULT-MYSQL-DML-001', score: 100, weightedScore: 100, blocking: 'hard' }),
@@ -22,6 +22,9 @@ test('runReview rejects model findings outside routed candidate rules', async ()
   assert.deepEqual(result.findings.map((finding) => finding.ruleId), ['DEFAULT-JAVA-SPR-005']);
   assert.deepEqual(result.rejectedFindings.map((finding) => finding.ruleId), ['DEFAULT-MYSQL-DML-001']);
   assert.equal(result.rejectedFindings[0].rejectReason, 'rule-not-in-candidate-set');
+  assert.ok(result.candidateRuleIds.includes('DEFAULT-JAVA-SPR-005'));
+  assert.equal(result.candidateRuleIds.includes('DEFAULT-MYSQL-DML-001'), false);
+  assert.equal(typeof result.candidateSummary.selectedRules, 'number');
   assert.equal(result.decision.status, 'SOFT_BLOCK');
 });
 

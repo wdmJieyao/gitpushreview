@@ -22,7 +22,14 @@ export function renderReport(result) {
   else if (result.mode === 'log') lines.push('模式：日志模式，会输出审核结果但不会拦截。');
   else if (result.mode === 'skip') lines.push('模式：已跳过检查。');
 
-  if (result.rejectedFindings?.length) lines.push(`已拒绝候选集外模型问题：${result.rejectedFindings.length}`);
+  if (result.rejectedFindings?.length) {
+    lines.push(`已拒绝候选集外模型问题：${result.rejectedFindings.length}`);
+    for (const finding of result.rejectedFindings.slice(0, 8)) {
+      lines.push(`  - ${finding.ruleId || '未知规则'}：${finding.rejectReason || '未知原因'}`);
+      if (finding.file) lines.push(`    位置：${finding.file}${finding.line ? `:${finding.line}` : ''}`);
+      if (finding.title) lines.push(`    标题：${finding.title}`);
+    }
+  }
   lines.push('');
 
   for (const finding of result.findings || []) {

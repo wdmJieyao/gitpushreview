@@ -22,6 +22,17 @@ function parsePolicy(markdown) {
   return { softBlockScore: Number(soft), hardBlockScore: Number(hard), raw: markdown };
 }
 
+function uniqueStable(items) {
+  return [...new Set(items.filter(Boolean))];
+}
+
+function candidateIdsFrom({ routedRules, staticFindings }) {
+  return uniqueStable([
+    ...(routedRules.diagnostics.candidateRuleIds || routedRules.rules.map((rule) => rule.id)),
+    ...staticFindings.map((finding) => finding.ruleId),
+  ]);
+}
+
 export async function runReview({ cwd, diff, files, fileContents = {}, modelInvoker, env }) {
   const workspaceRoot = path.join(cwd, '.gitpushreview');
   const reviewAgent = fs.readFileSync(path.join(workspaceRoot, 'agent', 'review-agent.md'), 'utf8');
@@ -54,10 +65,17 @@ export async function runReview({ cwd, diff, files, fileContents = {}, modelInvo
   const responseText = await invoke({ messages, modelConfig });
   const parsed = parseReviewJson(responseText);
   const { accepted: findings, rejected: rejectedFindings } = splitFindingsByCandidateSet(parsed.findings, candidateRules, markdownRules);
+  const candidateRuleIds = candidateIdsFrom({ routedRules, staticFindings });
   return {
     findings,
     rejectedFindings,
     decision: decideReview(findings, policy),
+    candidateRuleIds,
+    candidateSummary: {
+      ...routedRules.diagnostics.candidateSummary,
+      candidateRuleIds,
+      staticFindingRuleIds: uniqueStable(staticFindings.map((finding) => finding.ruleId)),
+    },
     routes: gateResult.routes,
     ruleRouting: routedRules.diagnostics,
     deterministicFindings: staticFindings,

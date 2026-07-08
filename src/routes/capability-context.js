@@ -64,7 +64,14 @@ export function buildCapabilityContext({ file, content = '', projectProfile = {}
   };
 
   if (/\.java$/.test(lower)) addCapability('language.java', 'java', 0.95, 'exact', ['extension:.java']);
-  if (/\.(vue|ts|tsx|js|jsx)$/.test(lower)) addCapability('frontend.vue', lower.endsWith('.vue') ? 'vue' : 'frontend', lower.endsWith('.vue') ? 0.95 : 0.72, lower.endsWith('.vue') ? 'exact' : 'inferred', [`extension:${pathExtension(lower)}`]);
+  if (/\.vue$/.test(lower)) addCapability('frontend.vue', 'vue', 0.95, 'exact', ['extension:.vue']);
+  if (/\.(ts|tsx)$/.test(lower)) addCapability('frontend.typescript', 'frontend-ts', 0.78, 'exact', [`extension:${pathExtension(lower)}`]);
+  if (/\.(js|jsx)$/.test(lower)) addCapability('frontend.javascript', 'frontend-js', 0.76, 'exact', [`extension:${pathExtension(lower)}`]);
+  const hasVueSignal = !lower.endsWith('.vue') && (
+    /\bfrom\s+['"]vue['"]|\bimport\s+Vue\b|\bcreateApp\s*\(|\bdefineComponent\s*\(/.test(text)
+    || /(^|\/)(vue\.config|vite\.config|nuxt\.config)\.[cm]?[jt]s$/.test(lower)
+  );
+  if (hasVueSignal) addCapability('frontend.vue', 'vue', 0.86, 'inferred', ['vue-signal']);
   if (/\.(py|pyw)$/.test(lower)) addCapability('language.python', 'python', 0.95, 'exact', [`extension:${pathExtension(lower)}`]);
   if (/\.(ya?ml|properties|json|env|conf|toml)$/.test(lower) || /(^|\/)\.env/.test(lower)) addCapability('common.config', 'config', 0.9, 'exact', ['config-extension']);
   if (/\.xml$/.test(lower)) addCapability('common.xml', 'xml', 0.85, 'exact', ['extension:.xml']);
@@ -82,10 +89,11 @@ export function buildCapabilityContext({ file, content = '', projectProfile = {}
     if (!capabilities.includes('persistence.sql')) addCapability('persistence.sql', 'sql', 0.78, 'inferred', ['java-inline-sql']);
   }
 
-  const hasMq = /(@RabbitListener|@KafkaListener|RabbitTemplate|KafkaTemplate|spring\.rabbitmq|spring\.kafka|bootstrap-servers|bootstrap\.servers|basicNack|basicAck|exchange|routing[-.]?key|consumer[-.]?group|sasl\.jaas\.config|\brabbitmq\s*:|\bkafka\s*:|auto-create\s*:|allow\.auto\.create\.topics|auto\.create\.topics\.enable)/i.test(text) || /\b(mq|kafka|rabbit|rabbitmq|rocketmq|pulsar)\b/i.test(lower);
+  const mqCombined = `${lower}\n${text}`;
+  const hasMq = /(@RabbitListener|@KafkaListener|RabbitTemplate|KafkaTemplate|spring\.rabbitmq|spring\.kafka|bootstrap-servers|bootstrap\.servers|basicNack|basicAck|sasl\.jaas\.config|\brabbitmq\s*:|\bkafka\s*:|allow\.auto\.create\.topics|auto\.create\.topics\.enable)/i.test(text) || /\b(mq|kafka|rabbit|rabbitmq|rocketmq|pulsar)\b/i.test(lower);
   if (hasMq) addCapability('middleware.mq', 'mq', 0.82, 'inferred', ['mq-signal']);
-  if (/rabbitmq|@RabbitListener|RabbitTemplate|spring\.rabbitmq|basicNack|basicAck|\brabbitmq\s*:/i.test(`${lower}\n${text}`)) addCapability('middleware.mq.rabbitmq', 'rabbitmq', 0.9, 'inferred', ['rabbitmq-signal']);
-  if (/kafka|@KafkaListener|KafkaTemplate|spring\.kafka|bootstrap-servers|bootstrap\.servers|allow\.auto\.create\.topics|sasl\.jaas\.config|\bkafka\s*:/i.test(`${lower}\n${text}`)) addCapability('middleware.mq.kafka', 'kafka', 0.9, 'inferred', ['kafka-signal']);
+  if (/rabbitmq|@RabbitListener|RabbitTemplate|spring\.rabbitmq|basicNack|basicAck|\brabbitmq\s*:/i.test(mqCombined)) addCapability('middleware.mq.rabbitmq', 'rabbitmq', 0.9, 'inferred', ['rabbitmq-signal']);
+  if (/kafka|@KafkaListener|KafkaTemplate|spring\.kafka|bootstrap-servers|bootstrap\.servers|allow\.auto\.create\.topics|sasl\.jaas\.config|\bkafka\s*:/i.test(mqCombined)) addCapability('middleware.mq.kafka', 'kafka', 0.9, 'inferred', ['kafka-signal']);
 
   if (/redis|RedisTemplate|StringRedisTemplate|LettuceConnectionFactory|jedis|redisson/i.test(`${lower}\n${text}`)) addCapability('middleware.redis', 'redis', 0.87, 'inferred', ['redis-signal']);
   if (/spring-boot|@SpringBootApplication|org\.springframework|spring\./i.test(`${lower}\n${text}`)) addCapability('backend.spring', 'spring', 0.78, 'inferred', ['spring-signal']);
@@ -93,6 +101,13 @@ export function buildCapabilityContext({ file, content = '', projectProfile = {}
   if (/password|passwd|secret|token|private[_-]?key|access[_-]?key|sasl\.jaas\.config|AKIA[0-9A-Z]{16}/i.test(text)) addCapability('security.secrets', 'security', 0.8, 'inferred', ['secret-like-token']);
 
   const dialects = detectDialect(lower, contentLower, routes, evidence);
+  for (const dialect of dialects) {
+    const capability = `persistence.sql.${dialect}`;
+    if (!capabilities.includes(capability)) {
+      capabilities.push(capability);
+      labels.push(dialect);
+    }
+  }
   const dialectCandidates = dialects.length ? dialects : (capabilities.includes('persistence.sql') ? ['generic'] : []);
   if (capabilities.includes('persistence.sql') && dialectCandidates.includes('generic')) {
     routes.push(routeFor('persistence.sql.generic', 0.55, 'fallback', ['unknown-sql-dialect']));

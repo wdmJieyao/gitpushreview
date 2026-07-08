@@ -6,6 +6,7 @@ import { getGitRoot, getStagedSnapshot } from './git.js';
 import { parseRuleIndex, loadMarkdownRules } from './rules/index.js';
 import { routeRulesForFiles } from './rules/router.js';
 import { runRuleEvidence } from './evidence/rule-evidence.js';
+import { loadReviewMode } from './review/mode.js';
 
 const HELP = `gitpushreview explain
 
@@ -45,6 +46,26 @@ function buildRuleCandidates(rules) {
   }));
 }
 
+function uniqueStable(items) {
+  return [...new Set(items.filter(Boolean))];
+}
+
+function buildCandidateDiagnostics(routedRules, findings = []) {
+  const staticFindingRuleIds = uniqueStable(findings.map((finding) => finding.ruleId));
+  const candidateRuleIds = uniqueStable([
+    ...(routedRules.diagnostics.candidateRuleIds || routedRules.rules.map((rule) => rule.id)),
+    ...staticFindingRuleIds,
+  ]);
+  return {
+    candidateRuleIds,
+    candidateSummary: {
+      ...routedRules.diagnostics.candidateSummary,
+      candidateRuleIds,
+      staticFindingRuleIds,
+    },
+  };
+}
+
 function renderFinding(finding) {
   const blocking = finding.blocking === 'hard' ? '强拦截' : finding.blocking === 'soft' ? '软拦截' : '证据线索';
   return [
@@ -57,7 +78,15 @@ function renderFinding(finding) {
 
 function summarizeCandidates(ruleRouting) {
   if (!ruleRouting) return ['候选规则：无'];
+  const summary = ruleRouting.candidateSummary || {};
   const lines = [`候选规则：${ruleRouting.selectedRules}/${ruleRouting.totalRules}，已过滤：${ruleRouting.excludedRules}`];
+  const sourceCounts = Object.entries(summary.bySource || {}).map(([key, value]) => `${key}=${value}`).join('，');
+  const capabilityCounts = Object.entries(summary.byCapability || {}).map(([key, value]) => `${key}=${value}`).join('，');
+  if (sourceCounts) lines.push(`来源统计：${sourceCounts}`);
+  if (capabilityCounts) lines.push(`能力统计：${capabilityCounts}`);
+  if (summary.topMatchReasons?.length) lines.push(`主要命中原因：${summary.topMatchReasons.join('；')}`);
+  if (summary.topSkipReasons?.length) lines.push(`主要过滤原因：${summary.topSkipReasons.join('；')}`);
+  if (summary.duplicates?.length) lines.push(`重复规则 ID：${summary.duplicates.map((item) => item.ruleId).join('，')}`);
   const matched = ruleRouting.decisions.filter((item) => item.matched).slice(0, 8);
   if (matched.length) {
     lines.push('命中候选示例：');
@@ -69,6 +98,7 @@ function summarizeCandidates(ruleRouting) {
 export function renderExplain({ routes, findings, ruleRouting }) {
   const routeList = Array.isArray(routes) ? routes : [routes];
   const lines = ['GitPushReview 路由诊断'];
+  if (ruleRouting?.modeNote) lines.push(ruleRouting.modeNote, '');
   if (routeList.length === 0) {
     lines.push('文件：无', '命中路由：无', '', '确定性检查：', '  没有检测到可解释的文件');
     return `${lines.join('\n')}\n`;
@@ -110,10 +140,17 @@ export function explainFile({ cwd, file, json = false }) {
   const result = runDeterministicGates({ files: [route.file], fileContents: { [route.file]: content } });
   const routedRules = buildRuleRouting(root, [route], { [route.file]: content });
   const ruleEvidence = runRuleEvidence({ rules: routedRules.rules, routes: [route], fileContents: { [route.file]: content }, ruleRouting: routedRules.diagnostics });
+  const findings = [...result.findings, ...ruleEvidence];
+  const mode = loadReviewMode(root);
+  if (mode.mode === 'skip') {
+    routedRules.diagnostics.modeNote = '当前审核模式：跳过；explain 仍会执行诊断，实际 check 会跳过检查。';
+  }
+  const candidateDiagnostics = buildCandidateDiagnostics(routedRules, findings);
   const payload = {
     routes: route,
-    findings: [...result.findings, ...ruleEvidence],
+    findings,
     ruleCandidates: buildRuleCandidates(routedRules.rules),
+    ...candidateDiagnostics,
     ruleRouting: routedRules.diagnostics,
   };
   return { exitCode: 0, output: json ? `${JSON.stringify(payload, null, 2)}\n` : renderExplain(payload) };
@@ -124,10 +161,17 @@ export function explainStaged({ cwd, json = false }) {
   const result = runDeterministicGates({ files: snapshot.files, diff: snapshot.diff, fileContents: snapshot.fileContents });
   const routedRules = buildRuleRouting(snapshot.root, result.routes, snapshot.fileContents);
   const ruleEvidence = runRuleEvidence({ rules: routedRules.rules, routes: result.routes, fileContents: snapshot.fileContents, ruleRouting: routedRules.diagnostics });
+  const findings = [...result.findings, ...ruleEvidence];
+  const mode = loadReviewMode(snapshot.root);
+  if (mode.mode === 'skip') {
+    routedRules.diagnostics.modeNote = '当前审核模式：跳过；explain 仍会执行诊断，实际 check 会跳过检查。';
+  }
+  const candidateDiagnostics = buildCandidateDiagnostics(routedRules, findings);
   const payload = {
     routes: result.routes,
-    findings: [...result.findings, ...ruleEvidence],
+    findings,
     ruleCandidates: buildRuleCandidates(routedRules.rules),
+    ...candidateDiagnostics,
     ruleRouting: routedRules.diagnostics,
   };
   return { exitCode: 0, output: json ? `${JSON.stringify(payload, null, 2)}\n` : renderExplain(payload) };

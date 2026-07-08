@@ -34,7 +34,7 @@ export function buildReviewMessages({ reviewAgent, policy, bdrContext, rules, di
         rules
           .map(
             (rule) =>
-              `## ${rule.id} ${rule.title}\nsource: ${rule.source}\nscore: ${rule.score}\nseverity: ${rule.severity}\nweight: ${rule.weight}\nhardBlock: ${rule.hardBlock}\npaths:\n${(rule.paths || []).map((item) => `- ${item}`).join('\n')}\ncapabilities:\n${(rule.capabilities || []).map((item) => `- ${item}`).join('\n')}\nscope: ${rule.scope || ''}\nsignalPaths:\n${(rule.signalPaths || []).map((item) => `- ${item}`).join('\n')}\nsignalContent:\n${(rule.signalContent || []).map((item) => `- ${item}`).join('\n')}\nevidencePatterns:\n${(rule.evidencePatterns || []).map((item) => `- ${item}`).join('\n')}\nallowUnknownExpansion: ${Boolean(rule.allowUnknownExpansion)}\n${rule.body}`,
+              `## ${rule.id} ${rule.title}\nsource: ${rule.source}\nscore: ${rule.score}\nseverity: ${rule.severity}\nweight: ${rule.weight}\nhardBlock: ${rule.hardBlock}\npaths:\n${(rule.paths || []).map((item) => `- ${item}`).join('\n')}\ncapabilities:\n${(rule.capabilities || []).map((item) => `- ${item}`).join('\n')}\nrequiredCapabilities:\n${(rule.requiredCapabilities || []).map((item) => `- ${item}`).join('\n')}\nscope: ${rule.scope || ''}\nsignalPaths:\n${(rule.signalPaths || []).map((item) => `- ${item}`).join('\n')}\nsignalContent:\n${(rule.signalContent || []).map((item) => `- ${item}`).join('\n')}\nevidencePatterns:\n${(rule.evidencePatterns || []).map((item) => `- ${item}`).join('\n')}\nallowUnknownExpansion: ${Boolean(rule.allowUnknownExpansion)}\n${rule.body}`,
           )
           .join('\n\n'),
         renderDeterministicContext({ routes, deterministicFindings, ruleRouting }),

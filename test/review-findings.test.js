@@ -33,3 +33,18 @@ test('splitFindingsByCandidateSet sorts accepted and rejected findings determini
   assert.deepEqual(result.accepted.map((item) => item.ruleId), ['A', 'B']);
   assert.deepEqual(result.rejected.map((item) => item.ruleId), ['C', 'Z']);
 });
+
+
+test('splitFindingsByCandidateSet keeps stable order for duplicate rule ids by file line and title', () => {
+  const result = splitFindingsByCandidateSet([
+    acceptedFinding({ ruleId: 'A', file: 'b.js', line: 2, title: 'second' }),
+    acceptedFinding({ ruleId: 'A', file: 'a.js', line: 3, title: 'third' }),
+    acceptedFinding({ ruleId: 'A', file: 'a.js', line: 1, title: 'first' }),
+  ], [{ id: 'A' }]);
+
+  assert.deepEqual(result.accepted.map((item) => `${item.file}:${item.line}:${item.title}`), [
+    'a.js:1:first',
+    'a.js:3:third',
+    'b.js:2:second',
+  ]);
+});

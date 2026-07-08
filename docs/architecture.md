@@ -116,6 +116,8 @@ Outputs:
   rejectedFindings,
   decision,
   routes,
+  candidateRuleIds,
+  candidateSummary,
   ruleRouting,
   deterministicFindings
 }
@@ -223,6 +225,8 @@ paths:
   - "**/*.java"
 capabilities:
   - language.java
+requiredCapabilities:
+  - backend.spring
 ```
 
 Rule body...
@@ -237,6 +241,7 @@ The parsed rule fields include:
 - `hardBlock`
 - `paths`
 - `capabilities`
+- `requiredCapabilities`
 - `signalPaths`
 - `signalContent`
 - `evidencePatterns`
@@ -252,6 +257,8 @@ extension, content signals, and optional project profile data.
 Common capabilities include:
 
 - `language.java`
+- `frontend.javascript`
+- `frontend.typescript`
 - `frontend.vue`
 - `language.python`
 - `common.config`
@@ -278,16 +285,26 @@ Every route gets `common.core`. Files with no stable capability signal get
 
 `src/rules/router.js` filters rules against routes:
 
-- Recognized files normally require both path match and capability match.
-- Rules without `capabilities` are legacy path-only rules.
+- Recognized files normally require path match, legacy capability match, and all
+  required capabilities.
+- `capabilities` keeps legacy OR semantics: any listed capability can satisfy
+  that gate.
+- `requiredCapabilities` uses strict AND semantics: every listed capability must
+  exist on a matching route.
+- Rules without `capabilities` and `requiredCapabilities` are legacy path-only
+  rules.
 - Common rules can apply to unknown-limited files.
 - Non-common rules need `allowUnknownExpansion: true` plus a matching
   `signalPaths` or `signalContent` pattern before they can expand into
   unknown-limited files.
+- `signalPaths` and `signalContent` are evidence signals for recognized files;
+  they do not replace normal path/capability matching.
 
 The router returns selected rules plus diagnostics, including selected count,
-excluded count, per-rule matches, and skip reasons. These diagnostics are sent to
-the model prompt and are useful for `explain`.
+excluded count, candidate rule IDs, source/capability summaries, dominant
+match/skip reasons, duplicate rule ID diagnostics, per-rule matches, and skip
+reasons. These diagnostics are sent to the model prompt and are useful for
+`explain`.
 
 ## Deterministic Evidence
 
@@ -388,6 +405,8 @@ When adding or changing default rules:
 - Use valid severity values.
 - Make `hardBlock` explicitly boolean.
 - Add or verify `capabilities`.
+- Prefer `requiredCapabilities` for concrete SQL dialects, MQ vendors,
+  Vue-specific rules, and Java subdomain rules.
 - Update tests if the expected count or ordering changes.
 
 ## Diagnostics
@@ -404,7 +423,11 @@ from manifests and directories, but it must not create or mutate
 `project-profile.json`.
 
 `src/explain.js` explains route and rule decisions for a file or staged changes.
-It should remain useful for debugging why a rule did or did not reach the model.
+It exposes `candidateRuleIds`, `candidateSummary`, and verbose `ruleRouting`.
+`explain --staged` must use staged blobs. `explain <file>` is an explicit
+working-tree diagnostic for one file. Human output should remain Chinese and
+should summarize candidate counts, source/capability counts, top match and skip
+reasons, duplicate IDs, and review-mode notes.
 
 ## Tests
 
@@ -429,6 +452,10 @@ Important regression areas:
 - deterministic evidence must not directly decide blocking.
 - routed prompts must not include unrelated database/middleware rules.
 - unknown-limited files must not fan out into all rules.
+- repeated staged input and file-order perturbation must keep candidate IDs,
+  accepted/rejected findings, score, and decision stable.
+- out-of-candidate model findings must stay in `rejectedFindings` and must not
+  affect blocking.
 - default rule corpus, rule count, and index/docs closure must stay consistent.
 - Java inline SQL findings must keep original Java file and line context.
 - `profile` must remain read-only.

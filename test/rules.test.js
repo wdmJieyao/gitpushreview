@@ -89,6 +89,32 @@ Kafka config must be safe.
 });
 
 
+test('parseMarkdownRules keeps required capability metadata', () => {
+  const markdown = `# Rules
+
+## DEFAULT-SQL-MYSQL-001 MySQL rule
+
+\`\`\`yaml
+score: 80
+severity: high
+hardBlock: true
+paths:
+  - "**/*.sql"
+capabilities:
+  - persistence.sql
+requiredCapabilities:
+  - persistence.sql.mysql
+\`\`\`
+
+MySQL SQL must be safe.
+`;
+
+  const rules = parseMarkdownRules(markdown, { source: 'default', file: 'mysql.md', weight: 1 });
+  assert.deepEqual(rules[0].capabilities, ['persistence.sql']);
+  assert.deepEqual(rules[0].requiredCapabilities, ['persistence.sql.mysql']);
+});
+
+
 test('parseMarkdownRules keeps rule-driven signal and evidence metadata', () => {
   const markdown = '# Rules\n\n' +
     '## DIY-PAY-001 Payment callback\n\n' +

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { initWorkspace } from '../src/workspace.js';
 import { routeCommand } from '../src/cli.js';
 
@@ -51,6 +52,10 @@ test('explain --json returns stable machine-readable details', async () => {
   assert.equal(result.exitCode, 0);
   assert.ok(parsed.routes.labels.includes('sql'));
   assert.equal(parsed.findings[0].ruleId, 'DEFAULT-SQL-INSERT-ARITY-001');
+  assert.ok(Array.isArray(parsed.candidateRuleIds));
+  assert.ok(parsed.candidateRuleIds.includes('DEFAULT-SQL-INSERT-ARITY-001'));
+  assert.equal(typeof parsed.candidateSummary.selectedRules, 'number');
+  assert.ok(parsed.candidateSummary.topMatchReasons.length > 0);
 });
 
 
@@ -86,4 +91,40 @@ test('explain renders static evidence as non-blocking clue', async () => {
   assert.equal(result.exitCode, 0);
   assert.match(result.output, /证据线索/);
   assert.doesNotMatch(result.output, /软拦截.*DIY-PAY-999/);
+});
+
+
+test('explain human output summarizes candidate routing diagnostics in Chinese', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-explain-summary-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+  fs.mkdirSync(path.join(dir, 'src/main/resources/mapper'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src/main/resources/mapper/OrderMapper.xml'), '<select id="find">select * from orders</select>', 'utf8');
+
+  const result = await routeCommand(['explain', 'src/main/resources/mapper/OrderMapper.xml'], { cwd: dir, env: {}, stdout: [] });
+
+  assert.equal(result.exitCode, 0);
+  assert.match(result.output, /候选规则/);
+  assert.match(result.output, /来源统计/);
+  assert.match(result.output, /能力统计/);
+  assert.match(result.output, /主要命中原因/);
+  assert.match(result.output, /主要过滤原因/);
+});
+
+
+test('explain --staged runs as diagnostics and reports skip mode note', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-explain-skip-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+  fs.writeFileSync(path.join(dir, '.gitpushreview', 'config', 'review-mode.json'), JSON.stringify({ mode: 'skip' }), 'utf8');
+  execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir, stdio: 'ignore' });
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir, stdio: 'ignore' });
+  fs.mkdirSync(path.join(dir, 'src/main/java'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src/main/java/App.java'), 'class App {}\n', 'utf8');
+  execFileSync('git', ['add', 'src/main/java/App.java'], { cwd: dir, stdio: 'ignore' });
+
+  const result = await routeCommand(['explain', '--staged'], { cwd: dir, env: {}, stdout: [] });
+
+  assert.equal(result.exitCode, 0);
+  assert.match(result.output, /当前审核模式：跳过/);
+  assert.match(result.output, /explain 仍会执行诊断/);
 });

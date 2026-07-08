@@ -56,6 +56,7 @@ export function parseMarkdownRules(markdown, defaults = {}) {
       hardBlock: Boolean(meta.hardBlock),
       paths: meta.paths || [],
       capabilities: meta.capabilities || [],
+      requiredCapabilities: meta.requiredCapabilities || [],
       signalPaths: meta.signalPaths || [],
       signalContent: meta.signalContent || [],
       evidencePatterns: meta.evidencePatterns || [],

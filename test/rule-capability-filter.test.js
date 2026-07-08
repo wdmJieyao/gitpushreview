@@ -95,3 +95,51 @@ test('routeRulesForFiles keeps signals as evidence-only for recognized non-match
   assert.deepEqual(routed.rules.map((rule) => rule.id), []);
   assert.match(routed.diagnostics.decisions[0].skipReason, /signal-is-evidence-only/);
 });
+
+
+test('routeRulesForFiles requires every required capability when present', () => {
+  const genericSql = buildCapabilityContext({
+    file: 'src/main/resources/mapper/OrderMapper.xml',
+    content: '<select id="find">select * from orders</select>',
+  });
+  const mysqlSql = buildCapabilityContext({
+    file: 'db/mysql/V1__orders.sql',
+    content: 'create table orders(id bigint auto_increment primary key) engine=InnoDB;',
+  });
+  const routedGeneric = routeRulesForFiles({
+    rules: [
+      { id: 'GENERIC-SQL', paths: ['**/*.xml', '**/*.sql'], capabilities: ['persistence.sql'] },
+      { id: 'MYSQL-STRICT', paths: ['**/*.xml', '**/*.sql'], capabilities: ['persistence.sql'], requiredCapabilities: ['persistence.sql.mysql'] },
+      { id: 'LEGACY-OR', paths: ['**/*.xml', '**/*.sql'], capabilities: ['persistence.sql.mysql', 'persistence.sql'] },
+    ],
+    routes: [genericSql],
+    fileContents: { [genericSql.file]: '<select id="find">select * from orders</select>' },
+  });
+  const routedMysql = routeRulesForFiles({
+    rules: [
+      { id: 'MYSQL-STRICT', paths: ['**/*.xml', '**/*.sql'], capabilities: ['persistence.sql'], requiredCapabilities: ['persistence.sql.mysql'] },
+    ],
+    routes: [mysqlSql],
+    fileContents: { [mysqlSql.file]: 'create table orders(id bigint auto_increment primary key) engine=InnoDB;' },
+  });
+
+  assert.deepEqual(routedGeneric.rules.map((rule) => rule.id), ['GENERIC-SQL', 'LEGACY-OR']);
+  assert.match(routedGeneric.diagnostics.decisions.find((item) => item.ruleId === 'MYSQL-STRICT').skipReason, /required-capability-mismatch:persistence\.sql\.mysql/);
+  assert.deepEqual(routedMysql.rules.map((rule) => rule.id), ['MYSQL-STRICT']);
+});
+
+
+test('routeRulesForFiles reports duplicate rule ids deterministically', () => {
+  const route = buildCapabilityContext({ file: 'src/main/java/App.java', content: 'class App {}' });
+  const routed = routeRulesForFiles({
+    rules: [
+      { id: 'DUP-RULE', source: 'a', file: 'rules/a.md', paths: ['**/*.java'], capabilities: ['language.java'] },
+      { id: 'DUP-RULE', source: 'b', file: 'rules/b.md', paths: ['**/*.java'], capabilities: ['language.java'] },
+    ],
+    routes: [route],
+  });
+
+  assert.deepEqual(routed.rules.map((rule) => rule.id), ['DUP-RULE']);
+  assert.deepEqual(routed.diagnostics.duplicates, [{ ruleId: 'DUP-RULE', sources: ['rules/a.md', 'rules/b.md'] }]);
+  assert.deepEqual(routed.diagnostics.candidateRuleIds, ['DUP-RULE']);
+});

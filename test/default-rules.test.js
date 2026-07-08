@@ -458,6 +458,29 @@ test('database runtime rules keep high-confidence hard blocks separate from revi
   assert.equal(droolsRules.get('DEFAULT-DROOLS-TIME-001').hardBlock, false);
 });
 
+
+test('default high-risk rule families use required capabilities for precise routing', () => {
+  const mysqlRules = rulesForDefaultDoc('docs/default/mysql.md');
+  const oracleRules = rulesForDefaultDoc('docs/default/oracle.md');
+  const postgresqlRules = rulesForDefaultDoc('docs/default/postgresql.md');
+  const oceanbaseRules = rulesForDefaultDoc('docs/default/oceanbase.md');
+  const rabbitmqRules = rulesForDefaultDoc('docs/default/rabbitmq.md');
+  const droolsRules = rulesForDefaultDoc('docs/default/drools.md');
+  const vueRules = rulesForDefaultDoc('docs/default/vue.md').filter((rule) => rule.id.startsWith('DEFAULT-VUE-'));
+  const javaRules = rulesForDefaultDoc('docs/default/java.md');
+
+  assert.ok(mysqlRules.every((rule) => rule.requiredCapabilities.includes('persistence.sql.mysql')));
+  assert.ok(oracleRules.every((rule) => rule.requiredCapabilities.includes('persistence.sql.oracle')));
+  assert.ok(postgresqlRules.every((rule) => rule.requiredCapabilities.includes('persistence.sql.postgresql')));
+  assert.ok(oceanbaseRules.every((rule) => rule.requiredCapabilities.includes('persistence.sql.oceanbase')));
+  assert.ok(rabbitmqRules.every((rule) => rule.requiredCapabilities.includes('middleware.mq.rabbitmq')));
+  assert.ok(droolsRules.every((rule) => rule.requiredCapabilities.includes('rules.drools')));
+  assert.ok(vueRules.every((rule) => rule.requiredCapabilities.includes('frontend.vue')));
+  assert.ok(javaRules.filter((rule) => rule.id.includes('-MYBATIS-')).every((rule) => rule.requiredCapabilities.includes('persistence.mybatis')));
+  assert.ok(javaRules.filter((rule) => rule.id.includes('-SPR-')).every((rule) => rule.requiredCapabilities.includes('backend.spring')));
+}
+);
+
 test('thin-stack additions keep hard blocks limited to high-confidence severe risks', () => {
   const vueRules = new Map(rulesForDefaultDoc('docs/default/vue.md').map((rule) => [rule.id, rule]));
   const pythonRules = new Map(rulesForDefaultDoc('docs/default/python.md').map((rule) => [rule.id, rule]));

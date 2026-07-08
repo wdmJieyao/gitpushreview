@@ -66,3 +66,11 @@ test('MQ gate detects Java and YAML MQ signals through multi-hit routing', () =>
   assert.ok(yaml.route.labels.includes('mq'));
   assert.ok(yaml.route.labels.includes('kafka'));
 });
+
+
+test('MQ gate ignores weak generic routing words without broker evidence', () => {
+  const { route, findings } = check('src/main/resources/application.yml', 'exchange: external\nrouting-key: profile\nconsumer-group: analytics\n');
+
+  assert.equal(route.capabilities.includes('middleware.mq'), false);
+  assert.deepEqual(findings, []);
+});

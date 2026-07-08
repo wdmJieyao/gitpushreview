@@ -15,3 +15,18 @@ test('renderReport includes status and finding titles', () => {
   assert.match(text, /修复建议：s/);
   assert.match(text, /Risky change/);
 });
+
+
+test('renderReport lists rejected findings with reject reasons', () => {
+  const text = renderReport({
+    decision: { status: 'PASS', totalScore: 0 },
+    findings: [],
+    rejectedFindings: [
+      { ruleId: 'DEFAULT-MYSQL-DML-001', rejectReason: 'rule-not-in-candidate-set', title: '候选集外问题', file: 'db/test.sql' },
+    ],
+  });
+
+  assert.match(text, /已拒绝候选集外模型问题：1/);
+  assert.match(text, /DEFAULT-MYSQL-DML-001：rule-not-in-candidate-set/);
+  assert.match(text, /db\/test\.sql/);
+});

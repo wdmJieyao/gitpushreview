@@ -47,3 +47,15 @@ test('FileRouteContext normalizes Windows path separators', () => {
   assert.ok(context.labels.includes('sql'));
   assert.ok(context.labels.includes('mybatis'));
 });
+
+
+test('FileRouteContext keeps weak MQ words from adding MQ capability', () => {
+  const context = buildFileRouteContext({
+    file: 'src/main/resources/application.yml',
+    content: 'exchange: external\nrouting-key: profile\nconsumer-group: analytics\n',
+  });
+
+  assert.ok(context.labels.includes('config'));
+  assert.equal(context.capabilities.includes('middleware.mq'), false);
+  assert.equal(context.labels.includes('mq'), false);
+});

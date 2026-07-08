@@ -23,6 +23,7 @@ test('runReview returns stable candidates, accepted IDs, rejected IDs, and statu
     const result = await runReview(input);
     runs.push({
       selected: result.ruleRouting.decisions.filter((item) => item.matched).map((item) => item.ruleId),
+      candidates: result.candidateRuleIds,
       accepted: result.findings.map((item) => item.ruleId),
       rejected: result.rejectedFindings.map((item) => item.ruleId),
       status: result.decision.status,
@@ -32,4 +33,29 @@ test('runReview returns stable candidates, accepted IDs, rejected IDs, and statu
   for (const run of runs.slice(1)) {
     assert.deepEqual(run, runs[0]);
   }
+});
+
+
+test('runReview candidate summary is stable when staged file order changes', async () => {
+  const { dir } = await makeInitializedWorkspace({ prefix: 'gpr-runner-order-' });
+  const base = {
+    cwd: dir,
+    diff: 'diff --git a/src/main/java/App.java b/src/main/java/App.java\n+class App {}\n' +
+      'diff --git a/src/pages/Login.vue b/src/pages/Login.vue\n+<template><div /></template>\n',
+    fileContents: {
+      'src/main/java/App.java': 'class App {}\n',
+      'src/pages/Login.vue': '<template><div /></template>\n',
+    },
+    modelInvoker: async () => modelJson([]),
+    env: { GITPUSHREVIEW_API_KEY: 'test' },
+  };
+
+  const first = await runReview({ ...base, files: ['src/main/java/App.java', 'src/pages/Login.vue'] });
+  const second = await runReview({ ...base, files: ['src/pages/Login.vue', 'src/main/java/App.java'] });
+
+  assert.ok(first.candidateRuleIds.length > 0);
+  assert.equal(typeof first.candidateSummary.selectedRules, 'number');
+  assert.deepEqual(second.candidateRuleIds, first.candidateRuleIds);
+  assert.deepEqual(second.candidateSummary, first.candidateSummary);
+  assert.equal(second.decision.status, first.decision.status);
 });
