@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120" role="img" aria-labelledby="title desc">
+  <title id="title">GitPushReview 模块代码映射图</title>
+  <desc id="desc">展示 GitPushReview 的系统分层和 src 下关键模块文件之间的对应关系。</desc>
+  <defs>
+    <style>
+      .bg { fill: #f7f9fc; }
+      .group { fill: #ffffff; stroke: #d3dce6; stroke-width: 2; rx: 18; }
+      .group-title { font: 700 24px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #1f2937; }
+      .card { fill: #fdfefe; stroke: #8ba0b4; stroke-width: 2; rx: 14; }
+      .card-blue { fill: #eef5ff; stroke: #4f88d3; stroke-width: 2.5; rx: 14; }
+      .card-green { fill: #edf9f1; stroke: #45a063; stroke-width: 2.5; rx: 14; }
+      .card-orange { fill: #fff4e8; stroke: #d7873a; stroke-width: 2.5; rx: 14; }
+      .title { font: 700 19px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #17212b; }
+      .text { font: 500 14px "JetBrains Mono", "Cascadia Mono", Consolas, monospace; fill: #425466; }
+      .desc { font: 500 14px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #5d6b78; }
+      .arrow { stroke: #5b6d80; stroke-width: 2.2; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#5b6d80"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1600" height="1120"/>
+
+  <rect class="group" x="40" y="40" width="320" height="250"/>
+  <text class="group-title" x="68" y="80">入口与工作区</text>
+  <rect class="card-blue" x="68" y="106" width="264" height="64"/>
+  <text class="title" x="92" y="136">CLI / Hook</text>
+  <text class="text" x="92" y="160">bin/gitpushreview.js</text>
+  <text class="text" x="92" y="180">src/cli.js / src/hook.js</text>
+  <rect class="card" x="68" y="188" width="264" height="72"/>
+  <text class="title" x="92" y="218">Workspace / Templates</text>
+  <text class="text" x="92" y="242">src/workspace.js</text>
+  <text class="text" x="92" y="262">src/templates.js</text>
+
+  <rect class="group" x="390" y="40" width="320" height="250"/>
+  <text class="group-title" x="418" y="80">输入与诊断</text>
+  <rect class="card-blue" x="418" y="106" width="264" height="64"/>
+  <text class="title" x="442" y="136">Git Snapshot</text>
+  <text class="text" x="442" y="160">src/git.js</text>
+  <text class="desc" x="442" y="184">读取 staged diff / files / blobs</text>
+  <rect class="card" x="418" y="188" width="264" height="72"/>
+  <text class="title" x="442" y="218">Mode / Doctor / Profile</text>
+  <text class="text" x="442" y="242">src/review/mode.js</text>
+  <text class="text" x="442" y="262">src/doctor.js / src/profile.js</text>
+
+  <rect class="group" x="740" y="40" width="394" height="250"/>
+  <text class="group-title" x="768" y="80">静态路由与证据</text>
+  <rect class="card-green" x="768" y="106" width="338" height="72"/>
+  <text class="title" x="792" y="136">Capability Context</text>
+  <text class="text" x="792" y="160">src/routes/capability-context.js</text>
+  <text class="text" x="792" y="180">src/routes/file-route-context.js</text>
+  <rect class="card-green" x="768" y="196" width="338" height="72"/>
+  <text class="title" x="792" y="226">Rule Router / Rule Evidence</text>
+  <text class="text" x="792" y="250">src/rules/router.js</text>
+  <text class="text" x="792" y="270">src/evidence/rule-evidence.js</text>
+
+  <rect class="group" x="1164" y="40" width="396" height="250"/>
+  <text class="group-title" x="1192" y="80">规则与知识来源</text>
+  <rect class="card" x="1192" y="106" width="340" height="72"/>
+  <text class="title" x="1216" y="136">Rule Index / Markdown Parser</text>
+  <text class="text" x="1216" y="160">src/rules/index.js</text>
+  <text class="text" x="1216" y="180">src/rules/markdown.js</text>
+  <rect class="card-orange" x="1192" y="196" width="340" height="72"/>
+  <text class="title" x="1216" y="226">BDR Provider</text>
+  <text class="text" x="1216" y="250">src/bdr/provider.js</text>
+  <text class="text" x="1216" y="270">vendor/bdr</text>
+
+  <rect class="group" x="40" y="340" width="520" height="330"/>
+  <text class="group-title" x="68" y="380">确定性检查</text>
+  <rect class="card-green" x="68" y="406" width="464" height="76"/>
+  <text class="title" x="92" y="436">Deterministic Runner</text>
+  <text class="text" x="92" y="460">src/gates/deterministic.js</text>
+  <text class="desc" x="92" y="484">统一调度 SQL、MQ、Java 内联 SQL 的静态证据提取</text>
+  <rect class="card" x="68" y="500" width="144" height="130"/>
+  <text class="title" x="92" y="530">SQL Gate</text>
+  <text class="text" x="92" y="554">src/gates/sql.js</text>
+  <rect class="card" x="228" y="500" width="144" height="130"/>
+  <text class="title" x="252" y="530">MQ Gate</text>
+  <text class="text" x="252" y="554">src/gates/mq.js</text>
+  <rect class="card" x="388" y="500" width="144" height="130"/>
+  <text class="title" x="412" y="530">Java Inline SQL</text>
+  <text class="text" x="412" y="554">src/gates/java-inline-sql.js</text>
+
+  <rect class="group" x="590" y="340" width="440" height="330"/>
+  <text class="group-title" x="618" y="380">审核编排</text>
+  <rect class="card-blue" x="618" y="406" width="384" height="94"/>
+  <text class="title" x="642" y="436">Review Runner</text>
+  <text class="text" x="642" y="460">src/review/runner.js</text>
+  <text class="desc" x="642" y="484">拉起 staged 输入、规则、路由、证据、模型调用和最终决策</text>
+  <rect class="card" x="618" y="520" width="384" height="110"/>
+  <text class="title" x="642" y="550">Runner 输出</text>
+  <text class="text" x="642" y="574">findings / rejectedFindings</text>
+  <text class="text" x="642" y="598">candidateRuleIds / candidateSummary</text>
+  <text class="text" x="642" y="622">routes / deterministicFindings</text>
+
+  <rect class="group" x="1060" y="340" width="500" height="330"/>
+  <text class="group-title" x="1088" y="380">模型交互与结果过滤</text>
+  <rect class="card-orange" x="1088" y="406" width="444" height="76"/>
+  <text class="title" x="1112" y="436">Prompt / Model Client</text>
+  <text class="text" x="1112" y="460">src/review/prompt.js</text>
+  <text class="text" x="1112" y="480">src/model/client.js / src/review/result.js</text>
+  <rect class="card-orange" x="1088" y="500" width="444" height="76"/>
+  <text class="title" x="1112" y="530">Candidate Filter</text>
+  <text class="text" x="1112" y="554">src/review/findings.js</text>
+  <text class="desc" x="1112" y="578">候选集外 findings 进入 rejectedFindings</text>
+  <rect class="card-orange" x="1088" y="594" width="444" height="76"/>
+  <text class="title" x="1112" y="624">Decision / Report / Explain</text>
+  <text class="text" x="1112" y="648">src/review/decision.js</text>
+  <text class="text" x="1112" y="668">src/format/report.js / src/explain.js</text>
+
+  <rect class="group" x="40" y="720" width="1520" height="330"/>
+  <text class="group-title" x="68" y="760">维护者阅读路径</text>
+  <rect class="card" x="68" y="804" width="208" height="120"/>
+  <text class="title" x="92" y="834">1. 入口</text>
+  <text class="text" x="92" y="858">src/cli.js</text>
+  <text class="desc" x="92" y="882">先看命令路由和模式切换</text>
+  <rect class="card" x="306" y="804" width="208" height="120"/>
+  <text class="title" x="330" y="834">2. staged 输入</text>
+  <text class="text" x="330" y="858">src/git.js</text>
+  <text class="desc" x="330" y="882">确认 review 只读暂存区</text>
+  <rect class="card" x="544" y="804" width="208" height="120"/>
+  <text class="title" x="568" y="834">3. 静态路由</text>
+  <text class="text" x="568" y="858">src/routes/*</text>
+  <text class="text" x="568" y="878">src/rules/router.js</text>
+  <rect class="card" x="782" y="804" width="208" height="120"/>
+  <text class="title" x="806" y="834">4. 规则来源</text>
+  <text class="text" x="806" y="858">src/rules/index.js</text>
+  <text class="text" x="806" y="878">src/rules/markdown.js</text>
+  <rect class="card" x="1020" y="804" width="208" height="120"/>
+  <text class="title" x="1044" y="834">5. 模型边界</text>
+  <text class="text" x="1044" y="858">src/review/prompt.js</text>
+  <text class="text" x="1044" y="878">src/review/findings.js</text>
+  <rect class="card" x="1258" y="804" width="274" height="120"/>
+  <text class="title" x="1282" y="834">6. 最终决策与输出</text>
+  <text class="text" x="1282" y="858">src/review/decision.js</text>
+  <text class="text" x="1282" y="878">src/format/report.js / src/explain.js</text>
+
+  <path class="arrow" d="M 332 138 L 418 138"/>
+  <path class="arrow" d="M 682 138 L 768 138"/>
+  <path class="arrow" d="M 1106 232 L 1106 406"/>
+  <path class="arrow" d="M 550 138 L 810 406"/>
+  <path class="arrow" d="M 300 260 L 300 406"/>
+  <path class="arrow" d="M 887 268 L 810 406"/>
+  <path class="arrow" d="M 532 444 L 618 444"/>
+  <path class="arrow" d="M 1002 444 L 1088 444"/>
+  <path class="arrow" d="M 1002 576 L 1088 576"/>
+</svg>

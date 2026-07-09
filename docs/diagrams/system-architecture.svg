@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1020" viewBox="0 0 1600 1020" role="img" aria-labelledby="title desc">
+  <title id="title">GitPushReview 系统架构图</title>
+  <desc id="desc">展示使用入口、输入边界、审核编排层、静态分析层、规则与知识层、模型复审层、决策与输出层之间关系的架构图。</desc>
+  <defs>
+    <style>
+      .bg { fill: #f6f8fb; }
+      .lane { fill: #ffffff; stroke: #cfd8e3; stroke-width: 2; rx: 18; }
+      .lane-title { font: 700 24px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #1f2937; }
+      .box { fill: #fdfefe; stroke: #8fa3b8; stroke-width: 2; rx: 14; }
+      .box-accent { fill: #eef6ff; stroke: #4c8ed9; stroke-width: 2.5; rx: 14; }
+      .box-warm { fill: #fff6ea; stroke: #d98a3f; stroke-width: 2.5; rx: 14; }
+      .box-green { fill: #eefaf2; stroke: #48a868; stroke-width: 2.5; rx: 14; }
+      .box-title { font: 700 20px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #18212b; }
+      .box-text { font: 500 15px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #425466; }
+      .note { font: 600 15px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #5b6470; }
+      .arrow { stroke: #516273; stroke-width: 2.5; fill: none; marker-end: url(#arrowhead); }
+      .soft-arrow { stroke: #8a98a8; stroke-width: 2; fill: none; marker-end: url(#arrowhead-soft); }
+    </style>
+    <marker id="arrowhead" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#516273"/>
+    </marker>
+    <marker id="arrowhead-soft" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#8a98a8"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1600" height="1020"/>
+
+  <rect class="lane" x="36" y="36" width="260" height="220"/>
+  <text class="lane-title" x="64" y="76">使用入口</text>
+  <rect class="box" x="64" y="102" width="204" height="46"/>
+  <text class="box-title" x="92" y="132">开发者</text>
+  <rect class="box" x="64" y="164" width="204" height="46"/>
+  <text class="box-title" x="92" y="194">git commit</text>
+  <rect class="box" x="64" y="226" width="204" height="46"/>
+  <text class="box-title" x="92" y="256">gitpushreview check --staged</text>
+
+  <rect class="lane" x="324" y="36" width="260" height="220"/>
+  <text class="lane-title" x="352" y="76">输入边界</text>
+  <rect class="box-accent" x="352" y="102" width="204" height="78"/>
+  <text class="box-title" x="380" y="132">Git 暂存区快照</text>
+  <text class="box-text" x="380" y="156">staged diff</text>
+  <text class="box-text" x="380" y="176">staged files / staged blobs</text>
+  <rect class="box" x="352" y="194" width="204" height="62"/>
+  <text class="box-title" x="380" y="224">工作区文件</text>
+  <text class="box-text" x="380" y="246">仅 explain &lt;file&gt; 时读取</text>
+
+  <rect class="lane" x="612" y="36" width="304" height="220"/>
+  <text class="lane-title" x="640" y="76">审核编排层</text>
+  <rect class="box-accent" x="640" y="102" width="248" height="56"/>
+  <text class="box-title" x="668" y="134">CLI / Hook</text>
+  <text class="box-text" x="668" y="154">src/cli.js + src/hook.js</text>
+  <rect class="box-accent" x="640" y="172" width="248" height="56"/>
+  <text class="box-title" x="668" y="204">Review Runner</text>
+  <text class="box-text" x="668" y="224">src/review/runner.js</text>
+
+  <rect class="lane" x="944" y="36" width="308" height="220"/>
+  <text class="lane-title" x="972" y="76">规则与知识层</text>
+  <rect class="box" x="972" y="102" width="252" height="46"/>
+  <text class="box-title" x="1000" y="132">rules-index.md / policy.md</text>
+  <rect class="box" x="972" y="164" width="252" height="46"/>
+  <text class="box-title" x="1000" y="194">default / project / diy 规则</text>
+  <rect class="box-warm" x="972" y="226" width="252" height="46"/>
+  <text class="box-title" x="1000" y="256">vendor/bdr</text>
+
+  <rect class="lane" x="36" y="300" width="760" height="414"/>
+  <text class="lane-title" x="64" y="340">静态分析层</text>
+  <rect class="box-green" x="64" y="372" width="216" height="88"/>
+  <text class="box-title" x="92" y="404">Capability Context</text>
+  <text class="box-text" x="92" y="430">路径 / 扩展名 / 内容信号</text>
+  <text class="box-text" x="92" y="452">输出 capabilities / labels</text>
+  <rect class="box-green" x="304" y="372" width="216" height="88"/>
+  <text class="box-title" x="332" y="404">Deterministic Gates</text>
+  <text class="box-text" x="332" y="430">SQL / MQ / Java Inline SQL</text>
+  <text class="box-text" x="332" y="452">只补高置信证据</text>
+  <rect class="box-green" x="544" y="372" width="224" height="88"/>
+  <text class="box-title" x="572" y="404">Rule Router</text>
+  <text class="box-text" x="572" y="430">paths + capabilities</text>
+  <text class="box-text" x="572" y="452">+ requiredCapabilities</text>
+  <rect class="box-green" x="184" y="510" width="220" height="88"/>
+  <text class="box-title" x="212" y="542">Rule Evidence</text>
+  <text class="box-text" x="212" y="568">evidencePatterns 命中</text>
+  <text class="box-text" x="212" y="590">只补静态线索，不拦截</text>
+  <rect class="box-accent" x="430" y="510" width="250" height="108"/>
+  <text class="box-title" x="458" y="542">候选规则集</text>
+  <text class="box-text" x="458" y="568">candidateRuleIds</text>
+  <text class="box-text" x="458" y="590">candidateSummary</text>
+  <text class="box-text" x="458" y="612">reasons / duplicates / counts</text>
+  <text class="note" x="64" y="664">静态层职责：收敛候选规则、补证据，不直接决定最终拦截</text>
+
+  <rect class="lane" x="824" y="300" width="392" height="414"/>
+  <text class="lane-title" x="852" y="340">模型复审层</text>
+  <rect class="box-warm" x="852" y="372" width="336" height="88"/>
+  <text class="box-title" x="880" y="404">Prompt Builder</text>
+  <text class="box-text" x="880" y="430">组装 diff / 候选规则 / 静态证据 / BDR</text>
+  <text class="box-text" x="880" y="452">只把相关规则交给模型，不做全量盲审</text>
+  <rect class="box-warm" x="852" y="486" width="336" height="56"/>
+  <text class="box-title" x="880" y="518">OpenAI-compatible Model</text>
+  <rect class="box-warm" x="852" y="562" width="336" height="64"/>
+  <text class="box-title" x="880" y="594">Result Parser + Candidate Filter</text>
+  <text class="box-text" x="880" y="616">候选集外 findings -> rejectedFindings</text>
+  <text class="note" x="852" y="664">模型层职责：在候选范围内复审，不允许越界 findings 直接生效</text>
+
+  <rect class="lane" x="1244" y="300" width="320" height="414"/>
+  <text class="lane-title" x="1272" y="340">决策与输出层</text>
+  <rect class="box-accent" x="1272" y="390" width="264" height="88"/>
+  <text class="box-title" x="1300" y="422">Decision Engine</text>
+  <text class="box-text" x="1300" y="448">PASS / SOFT_BLOCK / HARD_BLOCK</text>
+  <text class="box-text" x="1300" y="470">按得分和 blocking 汇总</text>
+  <rect class="box-accent" x="1272" y="520" width="264" height="88"/>
+  <text class="box-title" x="1300" y="552">Report / JSON / Exit Code</text>
+  <text class="box-text" x="1300" y="578">中文报告、诊断、pre-commit 返回码</text>
+
+  <path class="arrow" d="M 268 187 L 352 187"/>
+  <path class="arrow" d="M 556 141 L 640 141"/>
+  <path class="arrow" d="M 764 200 L 764 330"/>
+  <path class="arrow" d="M 454 180 L 454 372"/>
+  <path class="arrow" d="M 454 256 L 454 372"/>
+  <path class="soft-arrow" d="M 1098 210 L 1098 372"/>
+  <path class="soft-arrow" d="M 1098 272 L 1098 372"/>
+  <path class="arrow" d="M 280 416 L 304 416"/>
+  <path class="arrow" d="M 520 416 L 544 416"/>
+  <path class="arrow" d="M 656 460 L 656 510"/>
+  <path class="arrow" d="M 294 460 L 294 510"/>
+  <path class="arrow" d="M 680 564 L 852 564"/>
+  <path class="arrow" d="M 1188 514 L 1188 594"/>
+  <path class="arrow" d="M 1188 594 L 1272 594"/>
+  <path class="arrow" d="M 1404 478 L 1404 520"/>
+
+  <text class="note" x="64" y="912">关键边界 1：check --staged 只读暂存区，不读未暂存工作区</text>
+  <text class="note" x="64" y="944">关键边界 2：静态路由决定候选范围，模型复审决定最终问题</text>
+  <text class="note" x="64" y="976">关键边界 3：候选集外 findings 只进 rejectedFindings，不参与最终拦截</text>
+</svg>

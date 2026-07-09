@@ -10,6 +10,32 @@ GitPushReview 是一个 Git 提交前代码审核插件。它会在 `git commit`
 - 规则命中后按分数和权重计算风险，达到阈值后软拦截或强拦截。
 - 所有功能变更必须配套完善的案例测试，覆盖主流程、失败/边界场景，以及相关模式或权限差异。
 
+## 系统架构图
+
+先看这张图，基本就能理解这个项目是怎么工作的。
+
+![GitPushReview 系统架构图](docs/diagrams/system-architecture.svg)
+
+理解这张图时，抓住 4 个关键点就够了：
+
+- `输入边界`：`check --staged` 只看暂存区；`explain <file>` 才会读工作区文件。
+- `静态层职责`：只负责识别能力、收敛候选规则、补静态证据，不直接决定拦截。
+- `模型层职责`：只在候选规则范围内做最终复审，不是拿全量规则盲审。
+- `本地保护机制`：模型如果返回候选集外规则，会被过滤进 `rejectedFindings`，不参与最终计分。
+
+如果你准备直接读代码，可以看下面这张模块映射图：
+
+![GitPushReview 模块代码映射图](docs/diagrams/module-map.svg)
+
+快速定位时可以按这个顺序找：
+
+- 命令入口和参数处理：`src/cli.js`
+- staged 数据从哪里来：`src/git.js`
+- 静态路由为什么这样判：`src/routes/capability-context.js` 和 `src/rules/router.js`
+- 为什么某条规则进了候选集：`src/rules/markdown.js`、`src/rules/index.js`、`src/rules/router.js`
+- 为什么模型结果没生效：`src/review/findings.js`
+- 为什么最后拦截或放行：`src/review/decision.js` 和 `src/format/report.js`
+
 ## 快速开始
 
 全局安装：
@@ -142,7 +168,7 @@ macOS/Linux：
 export GITPUSHREVIEW_API_KEY=...
 ```
 
-## 系统流程图
+## 详细执行流程
 
 ```text
 开发者 git commit / gitpushreview check --staged
