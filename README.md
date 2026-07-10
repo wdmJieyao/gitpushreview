@@ -156,17 +156,26 @@ gitpushreview bdr status
 - `model`：模型名称。
 - `timeoutMs`：模型请求超时时间。到期后会中断本次 `/chat/completions` 请求，并输出中文超时错误。
 
+说明：
+
+- `git commit` 触发的 Git hook、IDE 内提交和普通终端命令的环境并不总是完全一致。
+- GitPushReview 会优先读取当前进程环境中的 `apiKeyEnv`。在 Windows 上，如果变量名是默认的 `GITPUSHREVIEW_API_KEY`，当前进程读不到时会继续读取当前用户或机器级环境变量，以支持无管理员权限的用户级安装。
+- macOS/Linux 没有统一的“当前用户环境变量”注册表。要让 hook 和 IDE 稳定可用，需要确保启动 Git/IDE 的进程环境里已经包含 `GITPUSHREVIEW_API_KEY`。
+- 可以运行 `gitpushreview doctor` 检查当前目录下是否已经成功识别到 API 密钥。
+
 Windows 永久用户环境变量：
 
 ```bash
 setx GITPUSHREVIEW_API_KEY "..."
 ```
 
-macOS/Linux：
+macOS/Linux 当前终端：
 
 ```bash
 export GITPUSHREVIEW_API_KEY=...
 ```
+
+如需持久生效，请把上面的 `export` 写入你实际使用的 shell 启动文件，并重新启动终端或 IDE 后运行 `gitpushreview doctor` 验证。
 
 ## 详细执行流程
 

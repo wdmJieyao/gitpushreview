@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { DEFAULT_DOCS, POLICY, REVIEW_AGENT, REVIEW_MODEL, RULES_INDEX } from './templates.js';
 import { renderReviewModeConfig } from './review/mode.js';
 
@@ -79,11 +80,33 @@ function copyVendoredBdr(target, force) {
   return copyDirectory(source, target, force);
 }
 
-export function installPreCommitHook(cwd, force = false) {
-  const hooksDir = path.join(cwd, '.git', 'hooks');
-  if (!fs.existsSync(hooksDir)) return { installed: false, reason: 'not a git repository' };
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
+}
 
-  const hookPath = path.join(hooksDir, 'pre-commit');
+function buildHookCommand() {
+  const nodePath = process.execPath;
+  const cliPath = path.join(PACKAGE_ROOT, 'bin', 'gitpushreview.js');
+  return `${shellQuote(nodePath)} ${shellQuote(cliPath)} check --staged`;
+}
+
+function resolvePreCommitHookPath(cwd) {
+  try {
+    const hookPath = execFileSync('git', ['rev-parse', '--git-path', 'hooks/pre-commit'], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    return path.resolve(cwd, hookPath);
+  } catch {
+    return '';
+  }
+}
+
+export function installPreCommitHook(cwd, force = false) {
+  const hookPath = resolvePreCommitHookPath(cwd);
+  if (!hookPath) return { installed: false, reason: 'not a git repository' };
+
   if (!force && fs.existsSync(hookPath)) {
     return {
       installed: false,
@@ -93,7 +116,9 @@ export function installPreCommitHook(cwd, force = false) {
     };
   }
 
-  const hook = '#!/bin/sh\nexec gitpushreview check --staged\n';
+  const hook = `#!/bin/sh\nexec ${buildHookCommand()}\n`;
+  fs.mkdirSync(path.dirname(hookPath), { recursive: true });
   fs.writeFileSync(hookPath, hook, { encoding: 'utf8', mode: 0o755 });
+  fs.chmodSync(hookPath, 0o755);
   return { installed: true, hookPath, manualCheckAvailable: true };
 }

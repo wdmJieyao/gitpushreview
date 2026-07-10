@@ -27,6 +27,17 @@ test('runDoctor accepts apiKey from reviewmodel config', async () => {
   assert.equal(apiKeyCheck.detail, '配置文件中的 apiKey');
 });
 
+test('runDoctor accepts apiKey from process environment', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-doctor-env-key-'));
+  await initWorkspace({ cwd: dir, installHook: false });
+
+  const report = runDoctor({ cwd: dir, env: { GITPUSHREVIEW_API_KEY: 'env-key' } });
+  const apiKeyCheck = report.checks.find((check) => check.name === 'apiKey');
+
+  assert.equal(apiKeyCheck.ok, true);
+  assert.equal(apiKeyCheck.detail, 'GITPUSHREVIEW_API_KEY');
+});
+
 test('runDoctor reports effective review mode', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gpr-doctor-mode-'));
   await initWorkspace({ cwd: dir, installHook: false });

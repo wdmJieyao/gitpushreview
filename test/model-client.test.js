@@ -100,3 +100,48 @@ test('callReviewModel aborts request and throws Chinese error when timeoutMs ela
 
   assert.equal(signal.aborted, true);
 });
+
+test('resolveApiKey can fall back to the approved GitPushReview user environment variable', () => {
+  const apiKey = resolveApiKey({
+    config: { apiKeyEnv: 'GITPUSHREVIEW_API_KEY' },
+    env: {},
+    userEnvReader: (name) => (name === 'GITPUSHREVIEW_API_KEY' ? 'user-key' : ''),
+  });
+
+  assert.equal(apiKey, 'user-key');
+});
+
+test('resolveApiKey does not fall back for arbitrary project-configured secret variables', () => {
+  const apiKey = resolveApiKey({
+    config: { apiKeyEnv: 'AWS_SECRET_ACCESS_KEY' },
+    env: {},
+    userEnvReader: () => 'should-not-be-used',
+  });
+
+  assert.equal(apiKey, '');
+});
+
+test('callReviewModel uses approved user environment fallback when process env misses apiKeyEnv', async () => {
+  let request = null;
+  await callReviewModel({
+    config: {
+      baseUrl: 'https://model.example/v1',
+      apiKeyEnv: 'GITPUSHREVIEW_API_KEY',
+      model: 'demo-model',
+    },
+    messages: [{ role: 'user', content: 'review' }],
+    env: {},
+    userEnvReader: (name) => (name === 'GITPUSHREVIEW_API_KEY' ? 'user-key' : ''),
+    fetchImpl: async (url, init) => {
+      request = { url, init };
+      return {
+        ok: true,
+        async json() {
+          return { choices: [{ message: { content: '{"findings":[]}' } }] };
+        },
+      };
+    },
+  });
+
+  assert.equal(request.init.headers.authorization, 'Bearer user-key');
+});
