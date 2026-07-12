@@ -762,6 +762,57 @@ const RULES_GUIDE = `# GitPushReview 规则编写说明
 
 本目录用于配置提交前代码审核规则。GitPushReview 只会加载 \`.gitpushreview/agent/rules-index.md\` 中声明的规则文件，不会自动扫描所有 Markdown 文件。
 
+## 快速新增一个业务模块规则
+
+如果要给某个业务模块新增规则，推荐按这四步做：
+
+1. 在 \`.gitpushreview/docs/project/\` 或 \`.gitpushreview/docs/diy/\` 下新增规则文件，例如 \`.gitpushreview/docs/project/order.md\`。
+2. 把新文件加入 \`.gitpushreview/agent/rules-index.md\` 对应来源的 \`files\` 列表。未写入索引的规则文件不会被加载。
+3. 在规则的 \`paths\` 中写清楚模块边界，例如 \`src/main/java/**/order/**/*.java\`、\`src/main/resources/mapper/order/**/*.xml\`。
+4. 用 \`gitpushreview explain --staged --json\` 或 \`gitpushreview explain <file> --json\` 检查 \`candidateRuleIds\`、\`routes\` 和 \`ruleRouting\`，确认规则确实进入候选集。
+
+业务模块规则通常放在 \`docs/project\`；违反后必须整改的安全、资金、鉴权、生产红线规则放在 \`docs/diy\`。
+
+完整示例：
+
+\`\`\`\`md
+## PROJECT-ORDER-001 订单取消必须校验状态流转
+
+\`\`\`yaml
+score: 80
+severity: high
+hardBlock: true
+paths:
+  - src/main/java/**/order/**/*.java
+  - src/main/resources/**/order/**/*.xml
+capabilities:
+  - language.java
+  - persistence.mybatis
+  - persistence.sql
+requiredCapabilities:
+  - backend.spring
+signalContent:
+  - cancelOrder
+  - order_status
+  - CANCELLED
+evidencePatterns:
+  - order-cancel|cancelOrder|检测到订单取消逻辑变更
+  - order-status|order_status|检测到订单状态字段变更
+allowUnknownExpansion: false
+\`\`\`
+
+**规则说明**：订单取消必须校验当前状态，只允许从可取消状态流转到已取消。
+
+**检查要点**：
+- 是否校验订单当前状态。
+- 是否避免已支付、已发货、已完成订单被直接取消。
+- 是否保证状态更新具备并发保护。
+
+**违规风险**：可能造成错误取消、履约中断或数据状态不一致。
+
+**修复建议**：在服务层统一执行状态机校验，并在更新时带上当前状态条件。
+\`\`\`\`
+
 ## 规则编写格式
 
 一个 Markdown 文件可以写多条规则。每条规则必须使用二级标题，格式为：
@@ -810,16 +861,129 @@ allowUnknownExpansion: false
 
 ## 字段说明
 
-- \`score\`：规则基础分，建议 1-100。分数越高，风险越高。
-- \`severity\`：严重等级，只建议填写 \`low\`、\`medium\`、\`high\`、\`critical\`。
-- \`hardBlock\`：是否单条命中就强拦截。明显异常、高风险安全问题、资金问题、越权问题建议设置为 \`true\`。
-- \`paths\`：规则适用文件范围。必须尽量精确，不建议使用 \`**/*\` 这种全局兜底。
-- \`capabilities\`：规则适用能力域，例如 \`language.java\`、\`frontend.vue\`、\`persistence.sql\`、\`middleware.mq.kafka\`。静态层会根据文件路径、内容信号和项目画像生成能力标签。
-- \`requiredCapabilities\`：必须全部满足的能力域，用于数据库方言、Vue 专属、MQ vendor 等需要精确信号的规则。旧 \`capabilities\` 仍是“任意一个命中即可”的兼容语义。
-- \`signalPaths\`：补充路由路径信号，只用于证明 unknown 文件可能适用该规则，不替代普通文件的 \`paths + capabilities\` 匹配。
-- \`signalContent\`：补充路由内容信号，可以填写正则片段，例如 \`KafkaTemplate\`、\`payment callback\`、\`tenantId\`。
-- \`evidencePatterns\`：静态证据提取模式，格式为 \`证据ID|正则|中文证据说明\`。命中后只作为 AI 复审线索，\`score=0\` 且不直接拦截。
-- \`allowUnknownExpansion\`：当文件无法识别能力时，是否允许通过 \`signalPaths\` 或 \`signalContent\` 把该规则加入 AI 候选集。默认 \`false\`，只建议高价值项目规则或 DIY 规则打开。
+\`## PROJECT-ORDER-001 订单取消必须校验状态流转\`
+
+规则头。前半段是规则 ID，必须稳定且唯一；后半段是中文标题，会进入 AI 上下文和最终报告。模型返回问题时会使用这个 \`ruleId\`，本地也会用它判断 finding 是否属于本次候选集。
+
+\`score\`
+
+规则基础风险分，默认值为 \`10\`，建议填写 \`1-100\`。分数越高，模型发现违规后越容易触发软拦截或硬拦截。
+
+\`severity\`
+
+严重等级，默认值为 \`medium\`。建议只填写 \`low\`、\`medium\`、\`high\`、\`critical\`。
+
+\`hardBlock\`
+
+是否允许这条规则触发硬拦截。设置为 \`true\` 时，模型在 diff 证据明确、没有明显豁免说明时可以返回 \`blocking: "hard"\`；不写或设置为 \`false\` 时，即使模型返回 hard，本地也会降级为 soft。
+
+\`paths\`
+
+文件路径范围，是第一层过滤。多个 path 是 OR，命中任意一个即可。业务模块规则最重要的是把 \`paths\` 写准，例如订单规则写 \`src/main/java/**/order/**/*.java\`，不要轻易写成 \`**/*\`。
+
+\`capabilities\`
+
+能力标签，是第二层过滤，OR 语义。变更文件只要被静态识别为其中任意一个能力，就可能命中这条规则。常见能力包括：
+
+- \`language.java\`
+- \`frontend.vue\`
+- \`frontend.javascript\`
+- \`frontend.typescript\`
+- \`persistence.sql\`
+- \`persistence.mybatis\`
+- \`persistence.sql.mysql\`
+- \`persistence.sql.oracle\`
+- \`persistence.sql.postgresql\`
+- \`persistence.sql.oceanbase\`
+- \`middleware.mq\`
+- \`middleware.mq.kafka\`
+- \`middleware.mq.rabbitmq\`
+- \`middleware.redis\`
+- \`backend.spring\`
+- \`common.config\`
+- \`common.core\`
+
+如果不写 \`capabilities\` 和 \`requiredCapabilities\`，就是旧规则兼容模式：只按 \`paths\` 路由。
+
+\`requiredCapabilities\`
+
+必须同时满足的能力标签，AND 语义。适合数据库方言、Kafka/RabbitMQ、Vue 专属、Spring 专属等需要精确命中的规则。例如：
+
+\`\`\`yaml
+capabilities:
+  - persistence.sql
+requiredCapabilities:
+  - persistence.sql.mysql
+\`\`\`
+
+这表示文件必须先被识别为 SQL，并且必须有明确 MySQL 方言证据，才会进入候选规则。
+
+\`signalPaths\`
+
+路径信号，主要是辅助证据，不是普通文件的主过滤条件。对于已识别能力的文件，它只会进入路由原因和模型上下文；对于 unknown-limited 文件，只有配合 \`allowUnknownExpansion: true\` 才可能把非公共规则扩展进候选集。
+
+\`signalContent\`
+
+内容信号，可以填写正则片段，例如 \`KafkaTemplate\`、\`payment callback\`、\`tenantId\`、\`cancelOrder\`。它会扫描暂存区内容，命中后作为路由原因或证据线索传给 AI，但不会绕过普通文件的 \`paths + capabilities + requiredCapabilities\`。
+
+\`evidencePatterns\`
+
+静态证据提取模式，格式为：
+
+\`\`\`text
+证据ID|正则|中文证据说明
+\`\`\`
+
+例如：
+
+\`\`\`yaml
+evidencePatterns:
+  - order-cancel|cancelOrder|检测到订单取消逻辑变更
+\`\`\`
+
+命中后会生成 \`static-evidence\` 给 AI 参考，\`score=0\` 且不直接拦截提交。最终是否形成 finding 仍由 AI 结合规则正文和 diff 判断。
+
+\`allowUnknownExpansion\`
+
+是否允许 unknown-limited 文件通过 \`signalPaths\` 或 \`signalContent\` 扩展进候选规则，默认是 \`false\`。只有文件类型可能识别不出来、但业务规则非常重要时才建议设置为 \`true\`。
+
+\`scope\`
+
+普通业务规则一般不用写。公共兜底规则可以写 \`scope: common\`，用于提交通用要求、安全兜底或 unknown 文件的有限检查。
+
+## 路由关系怎么理解
+
+静态路由的判断顺序可以按这句话记：
+
+\`\`\`text
+rules-index.md 负责加载哪些规则文件；
+paths 负责判断属于哪个模块；
+capabilities 负责判断是什么技术类型；
+requiredCapabilities 负责判断是否满足精确场景；
+signalPaths / signalContent / evidencePatterns 负责给 AI 证据线索。
+\`\`\`
+
+普通已识别文件必须满足 \`paths + capabilities + requiredCapabilities\` 才会进入 AI 候选规则上下文。模型只会收到候选规则、路由原因、静态证据和 staged diff；候选集外的模型 finding 会被本地过滤进 \`rejectedFindings\`，不会参与计分或拦截。
+
+调试命令：
+
+\`\`\`sh
+gitpushreview explain path/to/file --json
+gitpushreview explain --staged --json
+\`\`\`
+
+重点看输出中的 \`candidateRuleIds\`、\`candidateSummary\`、\`routes\` 和 \`ruleRouting\`。这些字段就是“本次变更实际会让 AI 看到哪些规则”的可复现证据。
+
+## 规则索引参数
+
+新增规则文件后，还要在 \`.gitpushreview/agent/rules-index.md\` 中登记来源。常见字段如下：
+
+- \`enabled\`：是否启用该来源，设置为 \`false\` 时整组规则不会加载。
+- \`provider\`：规则来源类型。Markdown 规则使用 \`markdown\`，BDR 上下文使用 \`bdr\`。
+- \`priority\`：来源排序值，数值越小越早加载。
+- \`weight\`：来源权重，模型 finding 的 \`weightedScore\` 通常按 \`score × weight\` 计算。
+- \`files\`：Markdown 规则文件清单。只加载这里显式列出的文件，不自动扫描目录。
+- \`path\`：BDR 来源路径，普通 Markdown 规则不用写。
 
 ## 计分机制
 

@@ -18,6 +18,11 @@ test('initWorkspace creates .gitpushreview structure', async () => {
   assert.equal(fs.existsSync(path.join(dir, '.gitpushreview', 'docs', 'RULES.md')), true);
   assert.equal(fs.existsSync(path.join(dir, '.gitpushreview', 'docs', 'project', 'README.md')), true);
   assert.equal(fs.existsSync(path.join(dir, '.gitpushreview', 'docs', 'diy', 'README.md')), true);
+  const rulesGuide = fs.readFileSync(path.join(dir, '.gitpushreview', 'docs', 'RULES.md'), 'utf8');
+  assert.match(rulesGuide, /快速新增一个业务模块规则/);
+  assert.match(rulesGuide, /PROJECT-ORDER-001 订单取消必须校验状态流转/);
+  assert.match(rulesGuide, /paths 负责判断属于哪个模块/);
+  assert.match(rulesGuide, /rules-index\.md 负责加载哪些规则文件/);
   for (const file of ['java.md', 'vue.md', 'mysql.md', 'oracle.md', 'drools.md', 'security.md', 'workflow.md']) {
     assert.equal(fs.existsSync(path.join(dir, '.gitpushreview', 'docs', 'default', file)), true);
   }
