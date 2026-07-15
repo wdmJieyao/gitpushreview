@@ -1,0 +1,133 @@
+---
+title: GitPushReview 规则校验系统流程（静态路由与模型复审）
+config:
+  theme: base
+  look: classic
+  flowchart:
+    curve: linear
+    htmlLabels: true
+    nodeSpacing: 30
+    rankSpacing: 46
+  themeVariables:
+    fontFamily: "Noto Sans CJK SC, Microsoft YaHei, Arial, sans-serif"
+    fontSize: "16px"
+    lineColor: "#64748b"
+    primaryTextColor: "#172033"
+    clusterBkg: "#ffffff"
+    clusterBorder: "#94a3b8"
+---
+flowchart TB
+    subgraph P1["阶段 1 · 接入与暂存快照"]
+        direction LR
+        START(["执行<br/>gitpushreview check --staged"])
+        LOADMODE["加载审查模式<br/>review-mode.json"]
+        ISSKIP{"mode = skip?"}
+        SKIPPED(["SKIPPED<br/>exit 0"])
+        SNAPSHOT["读取 Git Index<br/>staged diff · name-status · blobs"]
+
+        START --> LOADMODE --> ISSKIP
+        ISSKIP -->|是| SKIPPED
+        ISSKIP -->|否：normal / log| SNAPSHOT
+    end
+
+    subgraph P2["阶段 2 · 确定性分析与规则候选裁剪"]
+        direction LR
+        CONTEXT["加载审查上下文<br/>agent · policy · model config · BDR"]
+        PROFILE[("项目业务画像 · 目标设计<br/>module → business.*")]
+        INDEX[("rules-index.md<br/>显式列出的 Markdown 规则")]
+        ROUTES["构建文件路由上下文<br/>技术能力 + 业务能力<br/>路径 / 变更内容 / 上下文证据"]
+        GATES["提取确定性证据<br/>SQL · MQ · Java inline SQL"]
+        RULES["解析规则元数据<br/>paths · capabilities<br/>requiredCapabilities · signals"]
+        ROUTEMATCH{"静态路由门槛<br/>paths 匹配<br/>capabilities 命中任一<br/>requiredCapabilities 全部命中"}
+        CANDIDATE["候选规则集<br/>candidateRuleIds + 路由诊断"]
+        EXCLUDED["排除规则<br/>记录 skip reason"]
+        EVIDENCE["候选规则证据提取<br/>evidencePatterns"]
+
+        CONTEXT --> ROUTES
+        CONTEXT --> RULES
+        PROFILE --> ROUTES
+        INDEX --> RULES
+        ROUTES --> ROUTEMATCH
+        RULES --> ROUTEMATCH
+        ROUTEMATCH -->|满足| CANDIDATE
+        ROUTEMATCH -->|不满足| EXCLUDED
+        CANDIDATE --> EVIDENCE
+    end
+
+    subgraph P3["阶段 3 · 大模型语义复审"]
+        direction LR
+        PROMPT["组装模型输入<br/>policy + BDR + staged diff<br/>候选规则 + 路由诊断 + 静态证据"]
+        MODEL["调用 OpenAI-compatible Model<br/>按候选规则正文审查变更"]
+        RESPONSE["解析结构化响应<br/>findings JSON"]
+
+        PROMPT --> MODEL --> RESPONSE
+    end
+
+    subgraph P4["阶段 4 · 本地可信边界与执行结果"]
+        direction LR
+        FILTER{"Finding 可信校验<br/>ruleId 属于候选集<br/>且证据锚点有效?"}
+        ACCEPTED["acceptedFindings<br/>允许参与评分"]
+        REJECTED["rejectedFindings<br/>仅进入诊断"]
+        DECIDE["计算本地决策<br/>PASS / SOFT_BLOCK / HARD_BLOCK"]
+        ISLOG{"mode = log?"}
+        LOGOUT(["输出审查报告<br/>exit 0"])
+        RESULT{"normal 模式结果"}
+        PASS(["PASS<br/>exit 0"])
+        HARD(["HARD_BLOCK<br/>exit 1"])
+        SOFT{"SOFT_BLOCK<br/>交互确认通过?"}
+
+        FILTER -->|通过| ACCEPTED --> DECIDE
+        FILTER -->|拒绝| REJECTED
+        DECIDE --> ISLOG
+        ISLOG -->|是| LOGOUT
+        ISLOG -->|否| RESULT
+        RESULT -->|PASS| PASS
+        RESULT -->|HARD_BLOCK| HARD
+        RESULT -->|SOFT_BLOCK| SOFT
+        SOFT -->|是| PASS
+        SOFT -->|否 / CI / 非 TTY| HARD
+    end
+
+    SNAPSHOT --> CONTEXT
+    SNAPSHOT --> ROUTES
+    SNAPSHOT --> GATES
+
+    CANDIDATE --> PROMPT
+    EVIDENCE -->|仅作为模型上下文| PROMPT
+    GATES -->|仅作为模型上下文| PROMPT
+    CONTEXT --> PROMPT
+
+    RESPONSE --> FILTER
+    CANDIDATE -->|候选 ruleId 边界| FILTER
+    EXCLUDED -.-> REJECTED
+
+    BOUNDARY["职责边界<br/>静态层选择候选并提供证据；模型判断语义违规；<br/>本地护栏过滤越界 finding 并计算最终结果。"]
+    GATES -.-> BOUNDARY
+    BOUNDARY -.-> FILTER
+
+    classDef terminal fill:#172033,stroke:#172033,stroke-width:1.5px,color:#ffffff;
+    classDef ingest fill:#eaf2ff,stroke:#2563eb,stroke-width:1.5px,color:#172033;
+    classDef static fill:#eaf7f2,stroke:#158467,stroke-width:1.5px,color:#123c33;
+    classDef resource fill:#fff8e7,stroke:#b7791f,stroke-width:1.5px,color:#4a350d;
+    classDef model fill:#f3efff,stroke:#7c3aed,stroke-width:1.5px,color:#33205f;
+    classDef decision fill:#ffffff,stroke:#475569,stroke-width:2px,color:#172033;
+    classDef accepted fill:#e8f7ec,stroke:#26924d,stroke-width:1.75px,color:#174b2a;
+    classDef rejected fill:#f1f5f9,stroke:#94a3b8,stroke-width:1.25px,color:#475569;
+    classDef blocked fill:#fff0f0,stroke:#c24141,stroke-width:1.75px,color:#6b1d1d;
+    classDef boundary fill:#ffffff,stroke:#64748b,stroke-width:1.25px,stroke-dasharray:5 4,color:#334155;
+
+    class START terminal;
+    class LOADMODE,SNAPSHOT,CONTEXT ingest;
+    class ROUTES,GATES,RULES,CANDIDATE,EVIDENCE static;
+    class PROFILE,INDEX resource;
+    class PROMPT,MODEL,RESPONSE model;
+    class ISSKIP,ROUTEMATCH,FILTER,ISLOG,RESULT,SOFT decision;
+    class SKIPPED,EXCLUDED,REJECTED rejected;
+    class ACCEPTED,DECIDE,LOGOUT,PASS accepted;
+    class HARD blocked;
+    class BOUNDARY boundary;
+
+    style P1 fill:#f8fbff,stroke:#bfdbfe,stroke-width:1px
+    style P2 fill:#f7fcfa,stroke:#bbdfd3,stroke-width:1px
+    style P3 fill:#fbf9ff,stroke:#d8ccf5,stroke-width:1px
+    style P4 fill:#fafbfc,stroke:#cbd5e1,stroke-width:1px

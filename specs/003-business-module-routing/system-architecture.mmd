@@ -1,0 +1,115 @@
+---
+title: GitPushReview 系统架构（逻辑分层与可信边界）
+config:
+  theme: base
+  look: classic
+  flowchart:
+    curve: linear
+    htmlLabels: true
+    nodeSpacing: 28
+    rankSpacing: 48
+  themeVariables:
+    fontFamily: "Noto Sans CJK SC, Microsoft YaHei, Arial, sans-serif"
+    fontSize: "16px"
+    lineColor: "#64748b"
+    primaryTextColor: "#172033"
+    clusterBkg: "#ffffff"
+    clusterBorder: "#94a3b8"
+---
+flowchart LR
+    subgraph USERS["外部接入"]
+        direction TB
+        DEV["开发者 / 维护者"]
+        HOOK["Git pre-commit Hook"]
+        CI["CI / 非交互环境"]
+    end
+
+    subgraph ACCESS["A. 接入层"]
+        direction TB
+        ENTRY["进程入口<br/>bin/gitpushreview.js"]
+        CLI["命令路由<br/>src/cli.js"]
+        DIAG["诊断入口<br/>explain · doctor · profile"]
+    end
+
+    subgraph ORCHESTRATION["B. 应用编排层"]
+        direction TB
+        MODE["审查模式控制<br/>skip · log · normal"]
+        WORKSPACE["工作区上下文<br/>agent · policy · config · BDR"]
+        RUNNER["审查编排器<br/>src/review/runner.js"]
+    end
+
+    subgraph STATIC["C. 确定性分析与规则路由层"]
+        direction TB
+        SNAPSHOT["暂存快照边界<br/>Git Index：diff · names · blobs"]
+        ANALYSIS["文件分析<br/>src/routes/* · src/gates/*<br/>技术能力 · 业务能力 · 静态证据"]
+        ROUTER["规则引擎<br/>src/rules/* · src/evidence/*<br/>显式索引 · 能力门槛 · 证据提取"]
+        CANDIDATE["确定性路由产物<br/>candidateRuleIds · diagnostics · evidence"]
+    end
+
+    subgraph REVIEW["D. 模型复审与可信决策层"]
+        direction TB
+        PROMPT["模型上下文<br/>policy · BDR · staged diff<br/>候选规则 · 路由诊断 · 静态证据"]
+        MODEL["模型适配器<br/>OpenAI-compatible chat/completions"]
+        GUARD["可信边界<br/>响应解析 · 候选集过滤 · 证据锚点校验"]
+        DECISION["本地决策<br/>仅 acceptedFindings 参与评分"]
+    end
+
+    subgraph OUTPUT["E. 输出层"]
+        direction TB
+        REPORT["中文 / JSON 报告<br/>src/hook.js · format/report.js"]
+        EXIT["执行语义<br/>PASS · SOFT_BLOCK · HARD_BLOCK"]
+    end
+
+    DEV --> ENTRY
+    HOOK --> ENTRY
+    CI --> ENTRY
+    ENTRY --> CLI
+
+    CLI --> MODE
+    CLI --> WORKSPACE
+    CLI -.-> DIAG
+    MODE -->|normal / log| RUNNER
+    MODE -.->|skip：直接非阻断输出| REPORT
+    WORKSPACE --> RUNNER
+
+    RUNNER --> SNAPSHOT
+    SNAPSHOT --> ANALYSIS
+    ANALYSIS --> ROUTER
+    ROUTER --> CANDIDATE
+
+    CANDIDATE --> PROMPT
+    PROMPT --> MODEL
+    MODEL --> GUARD
+    GUARD --> DECISION
+    DECISION --> REPORT
+    REPORT --> EXIT
+
+    DIAG -.-> SNAPSHOT
+    DIAG -.-> ROUTER
+
+    INVARIANT["核心约束<br/>静态层只负责候选裁剪与证据生成<br/>不得直接产生最终阻断"]
+    CANDIDATE -.-> INVARIANT
+    INVARIANT -.-> GUARD
+
+    classDef actor fill:#ffffff,stroke:#475569,stroke-width:1.5px,color:#172033;
+    classDef access fill:#eaf2ff,stroke:#2563eb,stroke-width:1.5px,color:#172033;
+    classDef app fill:#edf6ff,stroke:#0284c7,stroke-width:1.5px,color:#17324d;
+    classDef static fill:#eaf7f2,stroke:#158467,stroke-width:1.5px,color:#123c33;
+    classDef review fill:#f3efff,stroke:#7c3aed,stroke-width:1.5px,color:#33205f;
+    classDef output fill:#e8f7ec,stroke:#26924d,stroke-width:1.75px,color:#174b2a;
+    classDef invariant fill:#ffffff,stroke:#64748b,stroke-width:1.25px,stroke-dasharray:5 4,color:#334155;
+
+    class DEV,HOOK,CI actor;
+    class ENTRY,CLI,DIAG access;
+    class MODE,WORKSPACE,RUNNER app;
+    class SNAPSHOT,ANALYSIS,ROUTER,CANDIDATE static;
+    class PROMPT,MODEL,GUARD,DECISION review;
+    class REPORT,EXIT output;
+    class INVARIANT invariant;
+
+    style USERS fill:#f8fafc,stroke:#cbd5e1,stroke-width:1px
+    style ACCESS fill:#f8fbff,stroke:#bfdbfe,stroke-width:1px
+    style ORCHESTRATION fill:#f8fbfd,stroke:#bae6fd,stroke-width:1px
+    style STATIC fill:#f7fcfa,stroke:#bbdfd3,stroke-width:1px
+    style REVIEW fill:#fbf9ff,stroke:#d8ccf5,stroke-width:1px
+    style OUTPUT fill:#f8fcf9,stroke:#bbdfc6,stroke-width:1px
